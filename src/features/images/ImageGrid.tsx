@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Card, 
   Image, 
-  Typography, 
   Button, 
   Checkbox, 
   Row, 
@@ -12,47 +11,51 @@ import {
   Spin, 
   Alert,
   Popconfirm,
-  message
+  message,
+  Modal,
+  Form,
+  Input
 } from 'antd';
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, AppstoreAddOutlined } from '@ant-design/icons';
 import { 
   fetchImages, 
-  selectAllImages,  // selector 函数 - 用于获取所有图片
+  selectFilteredImages,
   getImagesStatus, 
   getImagesError,
   toggleImageSelection,
   clearSelectedImages,
-  selectAllImagesAction,  // action creator - 用于选择所有图片的 action
+  selectAllImagesAction,
   bulkDeleteImages,
-  getSelectedImageIds
+  getSelectedImageIds,
+  createGroup
 } from './imagesSlice';
 import type { Image as ImageType } from './imagesSlice';
 import type { AppDispatch } from '../../app/store';
 import ImageUpload from './ImageUpload';
+import GroupSelector from './GroupSelector';
 
 const { Meta } = Card;
-const { Title } = Typography;
 
 const ImageGrid: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   
-  const images = useSelector(selectAllImages);
+  const images = useSelector(selectFilteredImages);
   const status = useSelector(getImagesStatus);
   const error = useSelector(getImagesError);
   const selectedImageIds = useSelector(getSelectedImageIds);
   
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
+  const [createGroupModalVisible, setCreateGroupModalVisible] = useState(false);
+  const [form] = Form.useForm();
   
-  // 加载照片
   useEffect(() => {
     if (status === 'idle') {
       dispatch(fetchImages());
     }
   }, [status, dispatch]);
   
-  // 处理点击照片
   const handleImageClick = (id: number) => {
     if (selectionMode) {
       dispatch(toggleImageSelection(id));
@@ -61,70 +64,81 @@ const ImageGrid: React.FC = () => {
     }
   };
   
-  // 处理批量删除
-  const handleBulkDelete = async () => {
-    if (selectedImageIds.length === 0) {
-      message.warning('No images selected');
-      return;
-    }
-    
-    try {
-      await dispatch(bulkDeleteImages(selectedImageIds)).unwrap();
-      message.success(`Successfully deleted ${selectedImageIds.length} images`);
-      dispatch(clearSelectedImages());
-      setSelectionMode(false);
-    } catch (error) {
-      message.error('Failed to delete some images');
-    }
-  };
-  
-  // 进入选择模式
   const enterSelectionMode = () => {
     setSelectionMode(true);
   };
   
-  // 退出选择模式
   const exitSelectionMode = () => {
     setSelectionMode(false);
     dispatch(clearSelectedImages());
   };
   
-  // 全选/取消全选
-  const handleSelectAll = (e: any) => {
-    if (e.target.checked) {
-      dispatch(selectAllImagesAction());  // 使用正确的 action creator 名称
-    } else {
-      dispatch(clearSelectedImages());
+  const handleBulkDelete = async () => {
+    if (selectedImageIds.length === 0) return;
+    
+    try {
+      await dispatch(bulkDeleteImages(selectedImageIds)).unwrap();
+      message.success(`成功删除 ${selectedImageIds.length} 张照片`);
+      exitSelectionMode();
+    } catch (error) {
+      message.error('批量删除失败');
     }
   };
   
-  // 检查图片是否被选中
-  const isImageSelected = (id: number) => {
-    return selectedImageIds.includes(id);
+  const handleCreateGroup = async () => {
+    try {
+      const values = await form.validateFields();
+      
+      await dispatch(createGroup({
+        name: values.name,
+        description: values.description || ''
+      })).unwrap();
+      
+      message.success(`分组 "${values.name}" 创建成功`);
+      setCreateGroupModalVisible(false);
+      form.resetFields();
+    } catch (error) {
+      console.error('Failed to create group:', error);
+      message.error('创建分组失败');
+    }
   };
   
-  // 渲染工具栏
   const renderToolbar = () => (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-      <Title level={2} style={{ margin: 0 }}>Photo Gallery</Title>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <GroupSelector />
+        <Button 
+          icon={<AppstoreAddOutlined />} 
+          onClick={() => setCreateGroupModalVisible(true)} 
+          style={{ marginLeft: 8 }}
+        >
+          创建分组
+        </Button>
+      </div>
       
       <div>
         {selectionMode ? (
           <>
             <Checkbox 
-              onChange={handleSelectAll} 
+              onChange={(e) => {
+                if (e.target.checked) {
+                  dispatch(selectAllImagesAction());
+                } else {
+                  dispatch(clearSelectedImages());
+                }
+              }} 
               checked={selectedImageIds.length > 0 && selectedImageIds.length === images.length}
               indeterminate={selectedImageIds.length > 0 && selectedImageIds.length < images.length}
               style={{ marginRight: 8 }}
             >
-              Select All
+              全选
             </Checkbox>
             <Popconfirm
-              title="Delete selected images"
-              description={`Are you sure you want to delete ${selectedImageIds.length} selected images?`}
+              title="删除选中的照片"
+              description={`确定要删除选中的 ${selectedImageIds.length} 张照片吗？`}
               onConfirm={handleBulkDelete}
-              okText="Yes"
-              cancelText="No"
+              okText="确定"
+              cancelText="取消"
               disabled={selectedImageIds.length === 0}
             >
               <Button 
@@ -134,10 +148,10 @@ const ImageGrid: React.FC = () => {
                 disabled={selectedImageIds.length === 0}
                 style={{ marginRight: 8 }}
               >
-                Delete Selected ({selectedImageIds.length})
+                删除选中 ({selectedImageIds.length})
               </Button>
             </Popconfirm>
-            <Button onClick={exitSelectionMode}>Cancel</Button>
+            <Button onClick={exitSelectionMode}>取消选择</Button>
           </>
         ) : (
           <>
@@ -147,37 +161,102 @@ const ImageGrid: React.FC = () => {
               onClick={() => setUploadModalVisible(true)}
               style={{ marginRight: 8 }}
             >
-              Upload Photo
+              上传照片
             </Button>
-            <Button onClick={enterSelectionMode}>Select Images</Button>
+            <Button onClick={enterSelectionMode}>选择照片</Button>
           </>
         )}
       </div>
     </div>
   );
   
-  // 加载中状态
-  // 修改加载中状态部分
-if (status === 'loading' && images.length === 0) {
-  return (
-    <div style={{ width: '100%', minWidth: '320px', maxWidth: '1280px' }}>
-      {renderToolbar()}
-      <div style={{ textAlign: 'center', marginTop: 50 }}>
-        <Spin size="large" />
-        <p style={{ marginTop: 16 }}>Loading images...</p>
-      </div>
-    </div>
+  const renderImageGrid = () => (
+    <Row gutter={[16, 16]}>
+      {images.map((image: ImageType) => (
+        <Col xs={24} sm={12} md={8} lg={6} key={image.id}>
+          <div 
+            style={{ 
+              position: 'relative', 
+              cursor: selectionMode ? 'pointer' : 'pointer'
+            }}
+            onClick={() => handleImageClick(image.id)}
+          >
+            <Card
+              hoverable
+              cover={
+                <div 
+                  style={{ 
+                    height: 200, 
+                    overflow: 'hidden',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: '#f0f0f0'
+                  }}
+                >
+                  <Image
+                    alt={image.name}
+                    src={image.image}
+                    style={{ objectFit: 'cover', width: '100%', height: '100%' }}
+                    preview={selectionMode ? false : true}
+                  />
+                </div>
+              }
+            >
+              <Meta 
+                title={image.name} 
+                description={
+                  image.description ? 
+                    (image.description.length > 50 ? 
+                      `${image.description.substring(0, 50)}...` : 
+                      image.description) : 
+                    '暂无描述'
+                } 
+              />
+            </Card>
+            
+            {selectionMode && (
+              <Checkbox
+                checked={selectedImageIds.includes(image.id)}
+                style={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  background: 'rgba(255, 255, 255, 0.8)',
+                  padding: 4,
+                  borderRadius: 4
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  dispatch(toggleImageSelection(image.id));
+                }}
+              />
+            )}
+          </div>
+        </Col>
+      ))}
+    </Row>
   );
-}
   
-  // 错误状态
+  if (status === 'loading' && images.length === 0) {
+    return (
+      <div style={{ width: '100%', minWidth: '320px', maxWidth: '1280px' }}>
+        {renderToolbar()}
+        <div style={{ textAlign: 'center', marginTop: 50 }}>
+          <Spin size="large" />
+          <p style={{ marginTop: 16 }}>加载照片中...</p>
+        </div>
+      </div>
+    );
+  }
+  
   if (status === 'failed') {
     return (
       <div style={{ width: '100%', minWidth: '320px', maxWidth: '1280px' }}>
         {renderToolbar()}
         <Alert
-          message="Error"
-          description={`Failed to load images: ${error}`}
+          message="错误"
+          description={`加载照片失败: ${error}`}
           type="error"
           showIcon
         />
@@ -185,73 +264,67 @@ if (status === 'loading' && images.length === 0) {
     );
   }
   
+  if (images.length === 0) {
+    return (
+      <div style={{ width: '100%', minWidth: '320px', maxWidth: '1280px' }}>
+        {renderToolbar()}
+        <div style={{ textAlign: 'center', marginTop: 50 }}>
+          <div style={{ fontSize: 64, color: '#cccccc' }}>
+            <PlusOutlined />
+          </div>
+          <p style={{ marginTop: 16, color: '#999999' }}>
+            {status === 'succeeded' ? '没有照片，点击"上传照片"添加' : '加载照片中...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div style={{ width: '100%', minWidth: '320px', maxWidth: '1280px' }}>
       {renderToolbar()}
-      
-      {images.length === 0 ? (
-        <div style={{ textAlign: 'center', marginTop: 50 }}>
-          <p>No images found. Click "Upload Photo" to add some!</p>
-        </div>
-      ) : (
-        <Row gutter={[16, 16]}>
-          {images.map((image: ImageType) => (
-            <Col xs={24} sm={12} md={8} lg={6} key={image.id}>
-              <Card
-                hoverable
-                cover={
-                  <div style={{ position: 'relative', overflow: 'hidden', height: 200 }}>
-                    <Image
-                      alt={image.name}
-                      src={image.image}
-                      style={{ 
-                        objectFit: 'cover',
-                        height: '100%', 
-                        width: '100%'
-                      }}
-                      preview={false}
-                      onClick={() => handleImageClick(image.id)}
-                    />
-                    {selectionMode && (
-                      <Checkbox
-                        checked={isImageSelected(image.id)}
-                        onChange={() => dispatch(toggleImageSelection(image.id))}
-                        style={{
-                          position: 'absolute',
-                          top: 8,
-                          right: 8,
-                          background: 'rgba(255, 255, 255, 0.7)',
-                          borderRadius: '50%',
-                          padding: 4
-                        }}
-                      />
-                    )}
-                  </div>
-                }
-                style={{
-                  ...(selectionMode && isImageSelected(image.id) ? { 
-                    border: '2px solid #1890ff',
-                    boxShadow: '0 0 10px rgba(24, 144, 255, 0.3)' 
-                  } : {})
-                }}
-              >
-                <Meta
-                  title={image.name}
-                //   description={image.description?.length > 50 
-                //     ? `${image.description.substring(0, 50)}...` 
-                //     : image.description || 'No description'
-                //   }
-                />
-              </Card>
-            </Col>
-          ))}
-        </Row>
-      )}
+      {renderImageGrid()}
       
       <ImageUpload 
         visible={uploadModalVisible} 
-        onClose={() => setUploadModalVisible(false)}
+        onClose={() => setUploadModalVisible(false)} 
       />
+      
+      <Modal
+        title="创建新分组"
+        open={createGroupModalVisible}
+        onOk={handleCreateGroup}
+        onCancel={() => {
+          setCreateGroupModalVisible(false);
+          form.resetFields();
+        }}
+        okText="创建"
+        cancelText="取消"
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          name="create_group_form"
+        >
+          <Form.Item
+            name="name"
+            label="分组名称"
+            rules={[{ required: true, message: '请输入分组名称' }]}
+          >
+            <Input placeholder="例如：风景、人物、动物等" />
+          </Form.Item>
+          
+          <Form.Item
+            name="description"
+            label="描述"
+          >
+            <Input.TextArea 
+              placeholder="分组的简要描述（可选）" 
+              rows={3}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

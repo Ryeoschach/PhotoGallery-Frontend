@@ -14,6 +14,8 @@ import {
   Col,
   Popconfirm,
   message,
+  Select,
+  Tag,
 } from 'antd';
 import { 
   ArrowLeftOutlined, 
@@ -30,7 +32,11 @@ import {
   getImageDetailError,
   updateImage,
   deleteImage,
-  clearCurrentImage
+  clearCurrentImage,
+  fetchGroups,
+  selectAllGroups,
+  getGroupsStatus,
+  updateImageGroups
 } from './imagesSlice';
 import type { AppDispatch } from '../../app/store';
 
@@ -44,6 +50,7 @@ interface Image {
   height: number;
   size?: number; // 文件大小（字节）
   uploaded_at: string; // ISO 日期字符串
+  groups?: number[]; // 分组 ID 列表
   // ...其他属性
 }
 
@@ -73,20 +80,30 @@ const ImageDetail: React.FC = () => {
   const status = useSelector(getImageDetailStatus);
   const error = useSelector(getImageDetailError);
   
+  const groups = useSelector(selectAllGroups);
+  const groupsStatus = useSelector(getGroupsStatus);
+  
   const [isEditing, setIsEditing] = useState(false);
   const [form] = Form.useForm();
   const [imageLoaded, setImageLoaded] = useState(false);
   
   // 加载照片详情
-useEffect(() => {
-  if (id) {
-    dispatch(fetchImageDetail(parseInt(id)));
-  }
+  useEffect(() => {
+    if (id) {
+      dispatch(fetchImageDetail(parseInt(id)));
+    }
+    
+    return () => {
+      dispatch(clearCurrentImage());
+    };
+  }, [id, dispatch]);
   
-  return () => {
-    dispatch(clearCurrentImage());
-  };
-}, [id, dispatch]);
+  // 加载分组数据
+  useEffect(() => {
+    if (groupsStatus === 'idle') {
+      dispatch(fetchGroups());
+    }
+  }, [groupsStatus, dispatch]);
   
   // 返回
   const handleBack = () => {
@@ -99,6 +116,7 @@ useEffect(() => {
       form.setFieldsValue({
         name: image.name,
         description: image.description || '',
+        groups: image.groups || [],
       });
       setIsEditing(true);
     }
@@ -119,6 +137,11 @@ useEffect(() => {
           id: image.id,
           name: values.title,
           description: values.description,
+        })).unwrap();
+        
+        await dispatch(updateImageGroups({
+          imageId: image.id,
+          groupIds: values.groups,
         })).unwrap();
         
         message.success('Image updated successfully');
@@ -147,30 +170,91 @@ useEffect(() => {
     setImageLoaded(true);
   };
   
-  // 加载中状态
-if (status === 'loading') {
-  return (
-    <div style={{ width: '100%', minWidth: '320px', maxWidth: '1280px' }}>
-      <Button type="primary" icon={<ArrowLeftOutlined />} onClick={handleBack} style={{ marginBottom: 16 }}>
-        Back to Gallery
-      </Button>
-      <div style={{ textAlign: 'center', marginTop: 50 }}>
-        {/* 方法1：使用嵌套模式 */}
-        <Spin size="large" tip="Loading image...">
-          <div style={{ padding: 50, background: 'rgba(0,0,0,0.05)', borderRadius: 4 }}>
-            Loading image details...
-          </div>
-        </Spin>
+  // 处理分组变更
+  const handleGroupChange = async (selectedGroupIds: number[]) => {
+    if (image) {
+      try {
+        await dispatch(updateImageGroups({
+          imageId: image.id,
+          groupIds: selectedGroupIds
+        })).unwrap();
         
-        {/* 或者方法2：分开显示 Spin 和文本 */}
-        {/* 
-        <Spin size="large" />
-        <p style={{ marginTop: 16 }}>Loading image...</p>
-        */}
+        message.success('照片分组已更新');
+      } catch (error) {
+        console.error('Failed to update image groups:', error);
+        message.error('更新照片分组失败');
+      }
+    }
+  };
+  
+  // 渲染分组信息
+  const renderGroups = () => {
+    if (!image) return null;
+    
+    if (isEditing) {
+      return (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ marginBottom: 8 }}>
+            <Text strong>分组:</Text>
+          </div>
+          <Select
+            mode="multiple"
+            style={{ width: '100%' }}
+            placeholder="选择或创建分组"
+            defaultValue={image.groups || []}
+            onChange={handleGroupChange}
+            loading={groupsStatus === 'loading'}
+          >
+            {groups.map(group => (
+              <Select.Option key={group.id} value={group.id} title={group.description}>
+                {group.name}
+              </Select.Option>
+            ))}
+          </Select>
+        </div>
+      );
+    } else {
+      return (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ marginBottom: 8 }}>
+            <Text strong style={{ marginRight: 8 }}>分组:</Text>
+            {image.groups && image.groups.length > 0 ? (
+              <div style={{ marginTop: 4 }}>
+                {image.groups.map(groupId => {
+                  const group = groups.find(g => g.id === groupId);
+                  return group ? (
+                    <Tag key={groupId} color="blue" style={{ marginBottom: 4 }}>
+                      {group.name}
+                    </Tag>
+                  ) : null;
+                })}
+              </div>
+            ) : (
+              <Text type="secondary">未分组</Text>
+            )}
+          </div>
+        </div>
+      );
+    }
+  };
+  
+  // 加载中状态
+  if (status === 'loading') {
+    return (
+      <div style={{ width: '100%', minWidth: '320px', maxWidth: '1280px' }}>
+        <Button type="primary" icon={<ArrowLeftOutlined />} onClick={handleBack} style={{ marginBottom: 16 }}>
+          Back to Gallery
+        </Button>
+        <div style={{ textAlign: 'center', marginTop: 50 }}>
+          <Spin size="large" tip="Loading image...">
+            <div style={{ padding: 50, background: 'rgba(0,0,0,0.05)', borderRadius: 4 }}>
+              Loading image details...
+            </div>
+          </Spin>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
   
   // 错误状态
   if (status === 'failed') {
@@ -281,6 +365,7 @@ if (status === 'loading') {
                 initialValues={{
                   title: image.name,
                   description: image.description || '',
+                  groups: image.groups || [],
                 }}
               >
                 <Form.Item
@@ -297,6 +382,25 @@ if (status === 'loading') {
                 >
                   <TextArea rows={4} />
                 </Form.Item>
+                
+                <Form.Item
+                  name="groups"
+                  label="分组"
+                >
+                  <Select
+                    mode="multiple"
+                    style={{ width: '100%' }}
+                    placeholder="选择分组"
+                    onChange={handleGroupChange}
+                    loading={groupsStatus === 'loading'}
+                  >
+                    {groups.map(group => (
+                      <Select.Option key={group.id} value={group.id} title={group.description}>
+                        {group.name}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Form.Item>
               </Form>
             ) : (
               <>
@@ -312,17 +416,13 @@ if (status === 'loading') {
                   {/* 添加图片尺寸信息 */}
                   <div style={{ marginBottom: 8 }}>
                     <Text strong style={{ marginRight: 8 }}>尺寸:</Text>
-                    {/* 使用后端返回的宽度和高度 */}
-                    <Text>{image.width}px × {image.height}px</Text>
+                    <Text>{image.width}px x {image.height}px</Text>
                   </div>
 
                   {/* 添加文件大小信息 */}
                   <div style={{ marginBottom: 8 }}>
                     <Text strong style={{ marginRight: 8 }}>文件大小:</Text>
-                    <Text>
-                      {/* 将字节大小转换为更友好的格式 */}
-                      {formatFileSize(image.size)}
-                    </Text>
+                    <Text>{formatFileSize(image.size)}</Text>
                   </div>
 
                   {/* 原有的上传时间信息 */}
@@ -333,6 +433,9 @@ if (status === 'loading') {
                     </Text>
                   </div>
                 </div>
+                
+                {/* 添加分组信息 */}
+                {renderGroups()}
               </>
             )}
           </Card>

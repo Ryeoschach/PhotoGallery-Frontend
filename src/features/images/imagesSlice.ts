@@ -7,15 +7,34 @@ import apiClient from '../../services/request';
 export interface Image {
   id: number;
   name: string;
-  description: string;
+  description: string | null;
   image: string; // URL 地址
   uploaded_at: string;
+  updated_at: string;
   user: number; // 用户 ID
   width: number;  // 添加这些字段
   height: number;
   size: number;
   groups: number[]; // 组 ID 数组
   // 根据实际 API 返回添加其他字段
+}
+
+// 在接口部分添加分组相关的接口
+export interface Group {
+  id: number;
+  name: string;
+  description: string | null;
+}
+
+export interface GroupCreateRequest {
+  name: string;
+  description: string;
+}
+
+export interface GroupUpdateRequest {
+  id: number;
+  name: string;
+  description: string;
 }
 
 // 编辑照片的请求数据接口
@@ -27,9 +46,10 @@ export interface ImageUpdateRequest {
 
 // 上传照片的请求数据接口
 export interface ImageUploadRequest {
-  name: string;     // 修改为 name 而不是 title
+  name: string;
   description: string;
   image: File;
+  groups?: number[]; // 添加可选的分组 ID 数组
 }
 
 // Slice 的状态接口
@@ -52,6 +72,14 @@ interface ImagesState {
   deleteError: string | null | undefined;
   // 选中的照片（用于批量删除）
   selectedImageIds: number[];
+  
+  // 添加分组相关状态
+  groups: Group[];
+  groupsStatus: 'idle' | 'loading' | 'succeeded' | 'failed';
+  groupsError: string | null | undefined;
+  
+  // 当前选中的分组 ID（用于过滤）
+  selectedGroupId: number | null;
 }
 
 // 初始状态
@@ -69,6 +97,12 @@ const initialState: ImagesState = {
   deleteStatus: 'idle',
   deleteError: null,
   selectedImageIds: [],
+  
+  // 添加分组初始状态
+  groups: [],
+  groupsStatus: 'idle',
+  groupsError: null,
+  selectedGroupId: null,
 };
 
 // 获取所有照片列表
@@ -97,14 +131,19 @@ export const uploadImage = createAsyncThunk(
     formData.append('name', imageData.name);
     formData.append('description', imageData.description || '');
     formData.append('image', imageData.image);
-
-    console.log('Uploading image with data:', imageData); // 调试日志
     
-    // 修正调用方式，将 URL 和选项对象作为两个参数传递
+    // 如果有分组数据，添加到表单
+    if (imageData.groups && imageData.groups.length > 0) {
+      // 对于数组，Django REST framework 期望多个同名字段
+      imageData.groups.forEach(groupId => {
+        formData.append('groups', groupId.toString());
+      });
+    }
+
     const response = await apiClient.post<Image>('/images/', {
-      data: formData,  // 将 formData 作为 data 属性
-      requestType: 'form',  // 指定请求类型为 form
-      headers: {}  // 可以保留空的 headers 对象
+      data: formData,
+      requestType: 'form',
+      headers: {}
     });
     
     return response;
@@ -151,6 +190,70 @@ export const bulkDeleteImages = createAsyncThunk(
   }
 );
 
+// 获取所有分组
+export const fetchGroups = createAsyncThunk(
+  'images/fetchGroups',
+  async () => {
+    const response = await apiClient.get<Group[]>('/groups/');
+    return response;
+  }
+);
+
+// 创建分组
+export const createGroup = createAsyncThunk(
+  'images/createGroup',
+  async (groupData: GroupCreateRequest) => {
+    const response = await apiClient.post<Group>('/groups/', {
+      data: groupData,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    return response;
+  }
+);
+
+// 更新分组
+export const updateGroup = createAsyncThunk(
+  'images/updateGroup',
+  async (groupData: GroupUpdateRequest) => {
+    const response = await apiClient.patch<Group>(`/groups/${groupData.id}/`, {
+      data: {
+        name: groupData.name,
+        description: groupData.description
+      },
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    return response;
+  }
+);
+
+// 删除分组
+export const deleteGroup = createAsyncThunk(
+  'images/deleteGroup',
+  async (groupId: number) => {
+    await apiClient.delete(`/groups/${groupId}/`);
+    return groupId;
+  }
+);
+
+// 更新照片的分组
+export const updateImageGroups = createAsyncThunk(
+  'images/updateImageGroups',
+  async ({ imageId, groupIds }: { imageId: number, groupIds: number[] }) => {
+    const response = await apiClient.patch<Image>(`/images/${imageId}/`, {
+      data: { groups: groupIds },
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    console.log('Update groups response:', response); // 调试日志
+    return response;
+  }
+);
+
 // 创建 Slice
 const imagesSlice = createSlice({
   name: 'images',
@@ -194,7 +297,11 @@ const imagesSlice = createSlice({
     // 全选照片
     selectAllImages: (state) => {
       state.selectedImageIds = state.list.map(image => image.id);
-    }
+    },
+    // 设置选中的分组 ID（用于过滤照片）
+    setSelectedGroup: (state, action: PayloadAction<number | null>) => {
+      state.selectedGroupId = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -281,6 +388,55 @@ const imagesSlice = createSlice({
       .addCase(deleteImage.rejected, (state, action) => {
         state.deleteStatus = 'failed';
         state.deleteError = action.error.message;
+      })
+      
+      // 获取分组列表
+      .addCase(fetchGroups.pending, (state) => {
+        state.groupsStatus = 'loading';
+        state.groupsError = null;
+      })
+      .addCase(fetchGroups.fulfilled, (state, action: PayloadAction<Group[]>) => {
+        state.groupsStatus = 'succeeded';
+        state.groups = action.payload;
+      })
+      .addCase(fetchGroups.rejected, (state, action) => {
+        state.groupsStatus = 'failed';
+        state.groupsError = action.error.message;
+      })
+      
+      // 创建分组
+      .addCase(createGroup.fulfilled, (state, action: PayloadAction<Group>) => {
+        state.groups.push(action.payload);
+      })
+      
+      // 更新分组
+      .addCase(updateGroup.fulfilled, (state, action: PayloadAction<Group>) => {
+        const index = state.groups.findIndex(group => group.id === action.payload.id);
+        if (index !== -1) {
+          state.groups[index] = action.payload;
+        }
+      })
+      
+      // 删除分组
+      .addCase(deleteGroup.fulfilled, (state, action: PayloadAction<number>) => {
+        state.groups = state.groups.filter(group => group.id !== action.payload);
+        if (state.selectedGroupId === action.payload) {
+          state.selectedGroupId = null;
+        }
+      })
+      
+      // 更新照片分组
+      .addCase(updateImageGroups.fulfilled, (state, action: PayloadAction<Image>) => {
+        // 更新列表中的照片
+        const index = state.list.findIndex(img => img.id === action.payload.id);
+        if (index !== -1) {
+          state.list[index] = action.payload;
+        }
+        
+        // 如果当前正在查看的是这张照片，也更新它
+        if (state.currentImage && state.currentImage.id === action.payload.id) {
+          state.currentImage = action.payload;
+        }
       });
   },
 });
@@ -293,7 +449,8 @@ export const {
   resetDeleteStatus,
   toggleImageSelection,
   clearSelectedImages,
-  selectAllImages: selectAllImagesAction
+  selectAllImages: selectAllImagesAction,
+  setSelectedGroup,
 } = imagesSlice.actions;
 
 // 导出 reducer
@@ -318,3 +475,24 @@ export const getDeleteStatus = (state: RootState) => state.images.deleteStatus;
 export const getDeleteError = (state: RootState) => state.images.deleteError;
 
 export const getSelectedImageIds = (state: RootState) => state.images.selectedImageIds;
+
+// 在文件底部添加以下选择器
+export const selectAllGroups = (state: RootState) => state.images.groups;
+export const getGroupsStatus = (state: RootState) => state.images.groupsStatus;
+export const getGroupsError = (state: RootState) => state.images.groupsError;
+export const getSelectedGroupId = (state: RootState) => state.images.selectedGroupId;
+
+// 添加一个筛选照片的选择器
+export const selectFilteredImages = (state: RootState) => {
+  const images = state.images.list;
+  const selectedGroupId = state.images.selectedGroupId;
+  
+  if (selectedGroupId === null) {
+    return images; // 如果没有选择分组，返回所有照片
+  }
+  
+  // 过滤属于选中分组的照片
+  return images.filter(image => 
+    image.groups && image.groups.includes(selectedGroupId)
+  );
+};
