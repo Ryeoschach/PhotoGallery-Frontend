@@ -147,22 +147,6 @@ body {
   }
 }
 
-/* 添加全局样式覆盖 */
-.ant-image {
-  overflow: visible !important; 
-  display: block !important;
-}
-
-.ant-image-img {
-  vertical-align: middle;
-}
-
-.ant-card-cover {
-  overflow: visible !important;
-  position: relative !important;
-}
-
-/* 调整布局容器 */
-.ant-layout {
-  min-height: 100vh !important;
+.ant-row {
+  row-gap: 0 !important;
 }

@@ -28,7 +28,7 @@ const App: React.FC = () => {
       padding: 0,
       minHeight: '100vh'
     }}>
-      <Header className="header" style={{ position: 'sticky', top: 0, zIndex: 1, width: '100%' }}>
+      <Header className="header" style={{ position: 'sticky', top: 10, zIndex: 1, width: '100%' }}>
         <div className="logo">Photo Gallery</div>
         <Menu 
           theme="dark" 

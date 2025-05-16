@@ -6,6 +6,7 @@ import type { UploadFile, UploadProps } from 'antd/es/upload/interface';
 import type { RcFile } from 'antd/es/upload';
 import { uploadImage, getUploadStatus, resetUploadStatus, fetchGroups, selectAllGroups } from './imagesSlice';
 import type { AppDispatch } from '../../app/store';
+import styles from './ImageUpload.module.css';
 
 interface ImageUploadProps {
   visible: boolean;
@@ -178,6 +179,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ visible, onClose }) => {
           <Form.Item 
             label="Image" 
             required
+            className={styles.uploadContainer}
           >
             <Upload
               listType="picture-card"
@@ -194,9 +196,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ visible, onClose }) => {
               }}
             >
               {fileList.length >= 1 ? null : (
-                <div>
+                <div className={styles.uploadButton}>
                   <PlusOutlined />
-                  <div style={{ marginTop: 8 }}>Upload</div>
+                  <div className={styles.uploadButtonText}>Upload</div>
                 </div>
               )}
             </Upload>
