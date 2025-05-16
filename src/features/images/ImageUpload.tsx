@@ -39,12 +39,15 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ visible, onClose }) => {
 
       // 添加调试信息
       console.log("File object:", fileList[0].originFileObj);
+      // 处理 owner 字段，如果为空或仅包含空格，则默认为 'admin'
+      const ownerValue = values.owner && values.owner.trim() ? values.owner.trim() : 'admin';
 
       const uploadData = {
         name: values.name,
         description: values.description || '',
         image: fileList[0].originFileObj as File,
-        groups: values.groups // 添加分组信息
+        groups: values.groups, // 添加分组信息
+        owner: ownerValue 
       };
 
       await dispatch(uploadImage(uploadData)).unwrap();
@@ -143,6 +146,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ visible, onClose }) => {
           layout="vertical"
           name="image_upload_form"
           validateTrigger={['onChange', 'onBlur']}
+          initialValues={{ name: '', description: '', groups: [], owner: 'admin' }} // 添加 owner 初始值
         >
           <Form.Item
             name="name"
@@ -157,6 +161,14 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ visible, onClose }) => {
             label="Description"
           >
             <Input.TextArea placeholder="Enter image description (optional)" rows={3} />
+          </Form.Item>
+
+          <Form.Item
+            name="owner"
+            label="Owner"
+            rules={[{ required: true, message: 'Please enter the owner of the image' }]}
+          >
+            <Input placeholder="Enter image owner" />
           </Form.Item>
 
           <Form.Item
