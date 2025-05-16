@@ -3,15 +3,20 @@
   box-sizing: border-box;
 }
 
-body {
+/* 重置全局边距和内边距 */
+html, body, #root {
   margin: 0;
   padding: 0;
+  height: 100%;
+  width: 100%;
+}
+
+body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 /* 设置根元素的宽度约束 */
 #root {
-  width: 100%;
   min-width: 320px;
   max-width: 1280px;
   margin: 0 auto;
@@ -19,25 +24,24 @@ body {
 
 /* 顶部导航 */
 .header {
+  padding: 0 20px !important;
   display: flex;
   align-items: center;
-  padding: 0 16px;
-  width: 100%;
 }
 
 /* Logo 样式 */
 .logo {
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  margin-right: 20px;
   float: left;
   width: 120px;
   height: 31px;
-  margin-right: 16px;
   background: rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-weight: bold;
-  font-size: 16px;
   will-change: filter;
   transition: filter 300ms;
 }
@@ -52,7 +56,7 @@ body {
 
 /* 内容区域 - 自适应宽度与限制 */
 .content {
-  padding: 0 16px;
+  padding: 24px !important;
   margin-top: 16px;
   width: 100%;
   min-width: 320px;
@@ -61,7 +65,6 @@ body {
 
 @media (min-width: 768px) {
   .content {
-    padding: 0 24px;
     margin-top: 20px;
   }
 }
@@ -92,7 +95,7 @@ body {
 /* 内容容器 - 自适应宽度与限制 */
 .site-layout-content {
   background: #fff;
-  padding: 16px;
+  padding: 24px;
   min-height: 280px;
   border-radius: 6px;
   width: 100%;
@@ -101,16 +104,10 @@ body {
   margin: 0 auto;
 }
 
-@media (min-width: 768px) {
-  .site-layout-content {
-    padding: 24px;
-  }
-}
-
 /* 底部样式 - 自适应宽度与限制 */
 .footer {
   text-align: center;
-  padding: 16px;
+  padding: 24px !important;
   width: 100%;
   min-width: 320px;
   max-width: 1280px;
@@ -148,4 +145,24 @@ body {
   .responsive-button-group {
     flex-direction: row;
   }
+}
+
+/* 添加全局样式覆盖 */
+.ant-image {
+  overflow: visible !important; 
+  display: block !important;
+}
+
+.ant-image-img {
+  vertical-align: middle;
+}
+
+.ant-card-cover {
+  overflow: visible !important;
+  position: relative !important;
+}
+
+/* 调整布局容器 */
+.ant-layout {
+  min-height: 100vh !important;
 }

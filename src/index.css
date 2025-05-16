@@ -22,6 +22,15 @@ html, body {
   font-size: 16px;
 }
 
+body, html {
+  margin: 0;
+  padding: 0;
+}
+
+#root {
+  height: 100%;
+}
+
 /* 基础响应式设置 */
 * {
   box-sizing: border-box;

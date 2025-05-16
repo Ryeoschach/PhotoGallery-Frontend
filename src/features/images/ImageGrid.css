@@ -1,0 +1,115 @@
+/* 高级图片悬停效果 */
+/* 重置基础容器样式 */
+.image-hover-container {
+  position: relative !important;
+  overflow: visible !important;
+  height: 200px !important;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #f0f0f0 !important;
+  z-index: 1 !important; 
+}
+
+/* 强制父元素允许内容溢出 */
+.ant-card, 
+.ant-card-cover, 
+.ant-card-body, 
+.ant-image, 
+.ant-image-mask {
+  overflow: visible !important;
+}
+
+/* 基础图片样式 */
+.image-hover-effect {
+  position: relative !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  transition: transform 0.3s ease, box-shadow 0.3s ease !important;
+  will-change: transform, box-shadow !important;
+}
+
+/* 悬停时的图片效果 */
+.image-hover-container:hover .image-hover-effect {
+  position: absolute !important;
+  z-index: 1000 !important;
+  transform: scale(1.6) !important;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.3) !important;
+}
+
+/* 添加图片悬停遮罩，可选 */
+.image-hover-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0);
+  transition: background 0.3s ease;
+  pointer-events: none;
+  z-index: 99;
+}
+
+.image-hover-container:hover .image-hover-mask {
+  background: rgba(0,0,0,0.05);
+}
+
+/* 确保卡片内容可见 */
+.ant-card {
+  overflow: visible !important;
+}
+
+/* 调整行间距，确保有足够空间显示放大的图片 */
+.ant-row {
+  row-gap: 32px !important;
+}
+
+/* 增加列间距 */
+.ant-col {
+  margin-bottom: 60px !important;
+}
+
+/* 自定义预览图标样式，可选 */
+.custom-mask {
+  opacity: 0 !important;
+  transition: opacity 0.3s ease;
+}
+
+.image-hover-container:hover .custom-mask {
+  opacity: 1 !important;
+}
+
+/* 移除测试边框 */
+.image-hover-effect {
+  border: none !important;
+}
+
+.image-hover-container:hover .image-hover-effect {
+  border: none !important;
+}
+
+/* 禁用 Ant Design 的图片预览遮罩 */
+.ant-image-mask {
+  display: none !important;
+}
+
+/* 基本图片悬停效果 */
+.simple-hover-container {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.simple-hover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.simple-hover-container:hover .simple-hover-image {
+  transform: scale(1.2);
+}

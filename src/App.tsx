@@ -20,19 +20,27 @@ const menuItems: MenuProps['items'] = [
 
 const App: React.FC = () => {
   return (
-    <Layout style={{ width: '100%', minWidth: '320px', maxWidth: '1280px', margin: '0 auto' }}>
-      <Header className="header">
+    <Layout style={{ 
+      width: '100%', 
+      minWidth: '320px', 
+      maxWidth: '1280px', 
+      margin: '0 auto',
+      padding: 0,
+      minHeight: '100vh'
+    }}>
+      <Header className="header" style={{ position: 'sticky', top: 0, zIndex: 1, width: '100%' }}>
         <div className="logo">Photo Gallery</div>
         <Menu 
           theme="dark" 
           mode="horizontal" 
           defaultSelectedKeys={['1']} 
-          items={menuItems} // 使用 items 属性替代子元素
+          items={menuItems}
+          style={{ flex: 1, minWidth: 0 }}
         />
       </Header>
       <Content className="content">
         <div className="site-layout-content">
-          <Outlet /> {/* 子路由会在这里渲染 */}
+          <Outlet />
         </div>
       </Content>
       <Footer className="footer">Photo Gallery ©2025 Created with Ant Design</Footer>

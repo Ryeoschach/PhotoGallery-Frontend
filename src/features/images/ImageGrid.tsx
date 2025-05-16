@@ -3,7 +3,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { 
   Card, 
-  Image, 
   Button, 
   Checkbox, 
   Row, 
@@ -33,8 +32,10 @@ import type { Image as ImageType } from './imagesSlice';
 import type { AppDispatch } from '../../app/store';
 import ImageUpload from './ImageUpload';
 import GroupSelector from './GroupSelector';
+import './ImageGrid.css';
 
 const { Meta } = Card;
+
 
 const ImageGrid: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -169,7 +170,7 @@ const ImageGrid: React.FC = () => {
       </div>
     </div>
   );
-  
+
   const renderImageGrid = () => (
     <Row gutter={[16, 16]}>
       {images.map((image: ImageType) => (
@@ -177,28 +178,22 @@ const ImageGrid: React.FC = () => {
           <div 
             style={{ 
               position: 'relative', 
-              cursor: selectionMode ? 'pointer' : 'pointer'
+              cursor: selectionMode ? 'pointer' : 'pointer',
+              marginBottom: 20
             }}
             onClick={() => handleImageClick(image.id)}
           >
             <Card
               hoverable
+              style={{ overflow: 'visible', position: 'relative' }}
+              styles={{ body: { overflow: 'visible' } }}
               cover={
-                <div 
-                  style={{ 
-                    height: 200, 
-                    overflow: 'hidden',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: '#f0f0f0'
-                  }}
-                >
-                  <Image
+                <div className="simple-hover-container">
+                  <img
+                    className="simple-hover-image"
                     alt={image.name}
                     src={image.image}
-                    style={{ objectFit: 'cover', width: '100%', height: '100%' }}
-                    preview={selectionMode ? false : true}
+                    onClick={() => handleImageClick(image.id)}
                   />
                 </div>
               }
@@ -224,7 +219,8 @@ const ImageGrid: React.FC = () => {
                   right: 8,
                   background: 'rgba(255, 255, 255, 0.8)',
                   padding: 4,
-                  borderRadius: 4
+                  borderRadius: 4,
+                  zIndex: 2000 // 确保在所有内容之上
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
