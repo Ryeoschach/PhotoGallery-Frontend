@@ -15,6 +15,8 @@ export interface Image {
   width: number;  // 添加这些字段
   height: number;
   size: number;
+  owner: string | number | null; // 添加 owner 属性，可以是字符串、数字或 null
+  thumbnail?: string; // 缩略图 URL
   groups: number[]; // 组 ID 数组
   // 根据实际 API 返回添加其他字段
 }
@@ -105,11 +107,27 @@ const initialState: ImagesState = {
   selectedGroupId: null,
 };
 
-// 获取所有照片列表
+// 修改 fetchImages 函数
 export const fetchImages = createAsyncThunk(
   'images/fetchImages',
-  async () => {
-    const response = await apiClient.get<Image[]>('/images/');
+  async (params?: { mine?: boolean }) => {
+    // 构建请求URL，如果指定了 mine 参数则请求用户自己的照片
+    const url = '/images/' + (params?.mine ? '?mine=true' : '');
+    
+    console.log('Fetching images with URL:', url);
+    const response = await apiClient.get(url);
+    console.log('API response for images:', response);
+    
+    // 检查响应的结构，提取正确的数据部分
+    if (response && typeof response === 'object') {
+      // 如果 response 是对象且有 data 属性
+      if ('data' in response) return response.data;
+      
+      // 如果 response 本身就是一个数组，那可能它就是我们需要的数据
+      if (Array.isArray(response)) return response;
+    }
+    
+    // 默认返回响应
     return response;
   }
 );
@@ -117,13 +135,68 @@ export const fetchImages = createAsyncThunk(
 // 获取单张照片详情
 export const fetchImageDetail = createAsyncThunk(
   'images/fetchImageDetail',
-  async (id: number) => {
-    const response = await apiClient.get<Image>(`/images/${id}/`);
-    return response;
+  async (id: number, { rejectWithValue }) => {
+    try {
+      // 打印请求详情
+      const requestUrl = `/images/${id}/`;
+      console.log(`🚀 开始请求图片详情，ID: ${id}，完整URL: ${apiClient.prefix + requestUrl}`);
+      
+      const response = await apiClient.get(requestUrl, {
+        headers: {
+          'Accept': 'application/json', // 明确请求JSON数据
+        },
+        getResponse: true, // 获取完整响应以检查状态码和内容类型
+      });
+      
+      console.log('🔍 API response for image detail:', response);
+      
+      // 检查响应状态和内容类型
+      if (response.response) {
+        console.log(`⚠️ 响应状态: ${response.response.status} ${response.response.statusText}`);
+        if (response.response.headers) {
+          const contentType = response.response.headers.get('content-type');
+          console.log(`📋 响应Content-Type: ${contentType}`);
+          if (contentType && !contentType.includes('application/json')) {
+            console.error('⛔ Expected JSON but got:', contentType);
+            return rejectWithValue(`服务器返回了非JSON数据(${contentType})，请检查API是否正确`);
+          }
+        }
+      }
+      
+      // 提取数据部分
+      const data = response.data || response;
+      console.log('📦 提取的数据部分:', data);
+      
+      // 检查响应的结构，提取正确的数据部分
+      if (data && typeof data === 'object') {
+        // 如果 data 有 data 属性
+        if ('data' in data) {
+          console.log('✅ 找到data属性，内容:', data.data);
+          return data.data;
+        }
+        
+        // 如果 data 本身就是包含需要的字段的对象，直接返回
+        if ('id' in data && 'name' in data && 'image' in data) {
+          console.log('✅ 找到有效的图片对象:', { id: data.id, name: data.name });
+          return data;
+        }
+        
+        // 详细记录对象结构
+        console.error('❌ 响应对象缺少必要属性，对象结构:', Object.keys(data));
+      } else {
+        console.error('❌ 数据部分不是有效对象:', typeof data);
+      }
+      
+      // 如果找不到有效数据，拒绝请求
+      return rejectWithValue('无法从响应中提取有效的图片数据');
+    } catch (error: any) {
+      console.error('Error fetching image detail:', error);
+      return rejectWithValue(error.message || '获取图片详情失败');
+    }
   }
 );
 
-// 上传新照片
+// 上传新照片 - 这个函数需要特殊处理，因为它使用FormData
 export const uploadImage = createAsyncThunk(
   'images/uploadImage',
   async (imageData: ImageUploadRequest) => {
@@ -132,9 +205,7 @@ export const uploadImage = createAsyncThunk(
     formData.append('description', imageData.description || '');
     formData.append('image', imageData.image);
     
-    // 如果有分组数据，添加到表单
     if (imageData.groups && imageData.groups.length > 0) {
-      // 对于数组，Django REST framework 期望多个同名字段
       imageData.groups.forEach(groupId => {
         formData.append('groups', groupId.toString());
       });
@@ -142,30 +213,50 @@ export const uploadImage = createAsyncThunk(
 
     const response = await apiClient.post<Image>('/images/', {
       data: formData,
-      requestType: 'form',
-      headers: {}
+      requestType: 'form'
     });
+    
+    console.log('Upload image response:', response);
+    
+    // 检查响应的结构，提取正确的数据部分
+    if (response && typeof response === 'object') {
+      // 如果 response 是对象且有 data 属性
+      if ('data' in response) return response.data;
+      
+      // 如果 response 本身就是包含需要的字段的对象，直接返回
+      if ('id' in response && 'name' in response && 'image' in response) return response;
+    }
     
     return response;
   }
 );
 
-
-// 更新照片信息
+// 修改 updateImage 函数
 export const updateImage = createAsyncThunk(
   'images/updateImage',
   async (imageData: ImageUpdateRequest) => {
     const { id, ...updateData } = imageData;
     
-    console.log('Updating image with data:', updateData); // 调试日志
+    console.log('Updating image with data:', updateData); 
     
-    const response = await apiClient.patch<Image>(`/images/${id}/`, {
+    const response = await apiClient.patch(`/images/${id}/`, {
       data: updateData,
       headers: {
         'Content-Type': 'application/json'
       }
     });
-    console.log('Update response:', response); // 添加响应日志
+    console.log('Update response:', response);
+    
+    // 检查响应的结构，提取正确的数据部分
+    if (response && typeof response === 'object') {
+      // 如果 response 是对象且有 data 属性
+      if ('data' in response) return response.data;
+      
+      // 如果 response 本身就是包含需要的字段的对象，直接返回
+      if ('id' in response && 'name' in response && 'image' in response) return response;
+    }
+    
+    // 默认返回响应
     return response;
   }
 );
@@ -194,7 +285,19 @@ export const bulkDeleteImages = createAsyncThunk(
 export const fetchGroups = createAsyncThunk(
   'images/fetchGroups',
   async () => {
-    const response = await apiClient.get<Group[]>('/groups/');
+    const response = await apiClient.get('/groups/');
+    console.log('API response for groups:', response);
+    
+    // 检查响应的结构，提取正确的数据部分
+    if (response && typeof response === 'object') {
+      // 如果 response 是对象且有 data 属性
+      if ('data' in response) return response.data;
+      
+      // 如果 response 本身就是一个数组，那可能它就是我们需要的数据
+      if (Array.isArray(response)) return response;
+    }
+    
+    // 默认返回响应
     return response;
   }
 );
@@ -203,12 +306,23 @@ export const fetchGroups = createAsyncThunk(
 export const createGroup = createAsyncThunk(
   'images/createGroup',
   async (groupData: GroupCreateRequest) => {
-    const response = await apiClient.post<Group>('/groups/', {
+    const response = await apiClient.post('/groups/', {
       data: groupData,
       headers: {
         'Content-Type': 'application/json'
       }
     });
+    console.log('Create group response:', response);
+    
+    // 检查响应的结构，提取正确的数据部分
+    if (response && typeof response === 'object') {
+      // 如果 response 是对象且有 data 属性
+      if ('data' in response) return response.data;
+      
+      // 如果 response 本身就是包含需要的字段的对象，直接返回
+      if ('id' in response && 'name' in response) return response;
+    }
+    
     return response;
   }
 );
@@ -217,8 +331,9 @@ export const createGroup = createAsyncThunk(
 export const updateGroup = createAsyncThunk(
   'images/updateGroup',
   async (groupData: GroupUpdateRequest) => {
-    const response = await apiClient.patch<Group>(`/groups/${groupData.id}/`, {
-      data: {
+    // 修复：将数据和headers合并到options对象中
+    const response = await apiClient.patch(`/groups/${groupData.id}/`, {
+      data: {  // 将数据放在data属性中
         name: groupData.name,
         description: groupData.description
       },
@@ -226,6 +341,17 @@ export const updateGroup = createAsyncThunk(
         'Content-Type': 'application/json'
       }
     });
+    console.log('Update group response:', response);
+    
+    // 检查响应的结构，提取正确的数据部分
+    if (response && typeof response === 'object') {
+      // 如果 response 是对象且有 data 属性
+      if ('data' in response) return response.data;
+      
+      // 如果 response 本身就是包含需要的字段的对象，直接返回
+      if ('id' in response && 'name' in response) return response;
+    }
+    
     return response;
   }
 );
@@ -243,13 +369,24 @@ export const deleteGroup = createAsyncThunk(
 export const updateImageGroups = createAsyncThunk(
   'images/updateImageGroups',
   async ({ imageId, groupIds }: { imageId: number, groupIds: number[] }) => {
-    const response = await apiClient.patch<Image>(`/images/${imageId}/`, {
+    console.log(`Updating image ${imageId} with groups:`, groupIds);
+    const response = await apiClient.patch(`/images/${imageId}/`, {
       data: { groups: groupIds },
       headers: {
         'Content-Type': 'application/json'
       }
     });
     console.log('Update groups response:', response); // 调试日志
+    
+    // 检查响应的结构，提取正确的数据部分
+    if (response && typeof response === 'object') {
+      // 如果 response 是对象且有 data 属性
+      if ('data' in response) return response.data;
+      
+      // 如果 response 本身就是包含需要的字段的对象，直接返回
+      if ('id' in response && 'name' in response && 'image' in response) return response;
+    }
+    
     return response;
   }
 );
@@ -310,9 +447,15 @@ const imagesSlice = createSlice({
         state.status = 'loading';
         state.error = null;
       })
-      .addCase(fetchImages.fulfilled, (state, action: PayloadAction<Image[]>) => {
+      .addCase(fetchImages.fulfilled, (state, action) => {
         state.status = 'succeeded';
-        state.list = action.payload;
+        // 确保action.payload是一个数组
+        if (Array.isArray(action.payload)) {
+          state.list = action.payload as Image[];
+        } else {
+          console.error('Fetch images succeeded but returned invalid data:', action.payload);
+          state.list = [];
+        }
       })
       .addCase(fetchImages.rejected, (state, action) => {
         state.status = 'failed';
@@ -324,9 +467,16 @@ const imagesSlice = createSlice({
         state.detailStatus = 'loading';
         state.detailError = null;
       })
-      .addCase(fetchImageDetail.fulfilled, (state, action: PayloadAction<Image>) => {
+      .addCase(fetchImageDetail.fulfilled, (state, action) => {
         state.detailStatus = 'succeeded';
-        state.currentImage = action.payload;
+        // 确保action.payload是一个有效的Image对象
+        if (action.payload && typeof action.payload === 'object' && 'id' in action.payload) {
+          state.currentImage = action.payload as Image;
+        } else {
+          console.error('Fetch image detail succeeded but returned invalid data:', action.payload);
+          state.detailStatus = 'failed';
+          state.detailError = '获取图片详情失败：无效的响应数据';
+        }
       })
       .addCase(fetchImageDetail.rejected, (state, action) => {
         state.detailStatus = 'failed';
@@ -338,9 +488,15 @@ const imagesSlice = createSlice({
         state.uploadStatus = 'loading';
         state.uploadError = null;
       })
-      .addCase(uploadImage.fulfilled, (state, action: PayloadAction<Image>) => {
+      .addCase(uploadImage.fulfilled, (state, action) => {
         state.uploadStatus = 'succeeded';
-        state.list.unshift(action.payload); // 添加到列表开头
+        // 从 action.payload 中提取图片数据并添加到列表中
+        // 确保action.payload是一个有效的Image对象
+        if (action.payload && typeof action.payload === 'object' && 'id' in action.payload) {
+          state.list.push(action.payload as Image);
+        } else {
+          console.error('Upload succeeded but returned invalid image data:', action.payload);
+        }
       })
       .addCase(uploadImage.rejected, (state, action) => {
         state.uploadStatus = 'failed';
@@ -352,16 +508,25 @@ const imagesSlice = createSlice({
         state.updateStatus = 'loading';
         state.updateError = null;
       })
-      .addCase(updateImage.fulfilled, (state, action: PayloadAction<Image>) => {
+      .addCase(updateImage.fulfilled, (state, action) => {
         state.updateStatus = 'succeeded';
-        // 更新列表中的照片
-        const index = state.list.findIndex(img => img.id === action.payload.id);
-        if (index !== -1) {
-          state.list[index] = action.payload;
-        }
-        // 如果当前正在查看的是这张照片，也更新它
-        if (state.currentImage && state.currentImage.id === action.payload.id) {
-          state.currentImage = action.payload;
+        
+        // 确保action.payload是一个有效的Image对象
+        if (action.payload && typeof action.payload === 'object' && 'id' in action.payload) {
+          const updatedImage = action.payload as Image;
+          
+          // 更新列表中的照片
+          const index = state.list.findIndex(img => img.id === updatedImage.id);
+          if (index !== -1) {
+            state.list[index] = updatedImage;
+          }
+          
+          // 如果当前正在查看的是这张照片，也更新它
+          if (state.currentImage && state.currentImage.id === updatedImage.id) {
+            state.currentImage = updatedImage;
+          }
+        } else {
+          console.error('Update image succeeded but returned invalid data:', action.payload);
         }
       })
       .addCase(updateImage.rejected, (state, action) => {
@@ -395,9 +560,15 @@ const imagesSlice = createSlice({
         state.groupsStatus = 'loading';
         state.groupsError = null;
       })
-      .addCase(fetchGroups.fulfilled, (state, action: PayloadAction<Group[]>) => {
+      .addCase(fetchGroups.fulfilled, (state, action) => {
         state.groupsStatus = 'succeeded';
-        state.groups = action.payload;
+        // 确保action.payload是一个数组
+        if (Array.isArray(action.payload)) {
+          state.groups = action.payload as Group[];
+        } else {
+          console.error('Fetch groups succeeded but returned invalid data:', action.payload);
+          state.groups = [];
+        }
       })
       .addCase(fetchGroups.rejected, (state, action) => {
         state.groupsStatus = 'failed';
@@ -405,15 +576,26 @@ const imagesSlice = createSlice({
       })
       
       // 创建分组
-      .addCase(createGroup.fulfilled, (state, action: PayloadAction<Group>) => {
-        state.groups.push(action.payload);
+      .addCase(createGroup.fulfilled, (state, action) => {
+        // 确保action.payload是一个有效的Group对象
+        if (action.payload && typeof action.payload === 'object' && 'id' in action.payload && 'name' in action.payload) {
+          state.groups.push(action.payload as Group);
+        } else {
+          console.error('Create group succeeded but returned invalid data:', action.payload);
+        }
       })
       
       // 更新分组
-      .addCase(updateGroup.fulfilled, (state, action: PayloadAction<Group>) => {
-        const index = state.groups.findIndex(group => group.id === action.payload.id);
-        if (index !== -1) {
-          state.groups[index] = action.payload;
+      .addCase(updateGroup.fulfilled, (state, action) => {
+        // 确保action.payload是一个有效的Group对象
+        if (action.payload && typeof action.payload === 'object' && 'id' in action.payload && 'name' in action.payload) {
+          const updatedGroup = action.payload as Group;
+          const index = state.groups.findIndex(group => group.id === updatedGroup.id);
+          if (index !== -1) {
+            state.groups[index] = updatedGroup;
+          }
+        } else {
+          console.error('Update group succeeded but returned invalid data:', action.payload);
         }
       })
       
@@ -426,16 +608,24 @@ const imagesSlice = createSlice({
       })
       
       // 更新照片分组
-      .addCase(updateImageGroups.fulfilled, (state, action: PayloadAction<Image>) => {
-        // 更新列表中的照片
-        const index = state.list.findIndex(img => img.id === action.payload.id);
-        if (index !== -1) {
-          state.list[index] = action.payload;
-        }
-        
-        // 如果当前正在查看的是这张照片，也更新它
-        if (state.currentImage && state.currentImage.id === action.payload.id) {
-          state.currentImage = action.payload;
+      .addCase(updateImageGroups.fulfilled, (state, action) => { 
+        // 确保action.payload是一个有效的Image对象
+        if (action.payload && typeof action.payload === 'object' && 'id' in action.payload) {
+          const updatedImage = action.payload as Image;
+          console.log('Updated image in reducer:', updatedImage);
+          
+          // 更新列表中的照片
+          const index = state.list.findIndex(img => img.id === updatedImage.id);
+          if (index !== -1) {
+            state.list[index] = updatedImage;
+          }
+          
+          // 如果当前正在查看的是这张照片，也更新它
+          if (state.currentImage && state.currentImage.id === updatedImage.id) {
+            state.currentImage = updatedImage;
+          }
+        } else {
+          console.error('Update image groups succeeded but returned invalid data:', action.payload);
         }
       });
   },
@@ -458,41 +648,73 @@ export default imagesSlice.reducer;
 
 // 导出 selectors
 export const selectAllImages = (state: RootState) => state.images.list;
-export const getImagesStatus = (state: RootState) => state.images.status;
-export const getImagesError = (state: RootState) => state.images.error;
-
-export const selectImageDetail = (state: RootState) => state.images.currentImage;
-export const getImageDetailStatus = (state: RootState) => state.images.detailStatus;
-export const getImageDetailError = (state: RootState) => state.images.detailError;
-
-export const getUploadStatus = (state: RootState) => state.images.uploadStatus;
-export const getUploadError = (state: RootState) => state.images.uploadError;
-
-export const getUpdateStatus = (state: RootState) => state.images.updateStatus;
-export const getUpdateError = (state: RootState) => state.images.updateError;
-
-export const getDeleteStatus = (state: RootState) => state.images.deleteStatus;
-export const getDeleteError = (state: RootState) => state.images.deleteError;
-
-export const getSelectedImageIds = (state: RootState) => state.images.selectedImageIds;
-
-// 在文件底部添加以下选择器
-export const selectAllGroups = (state: RootState) => state.images.groups;
-export const getGroupsStatus = (state: RootState) => state.images.groupsStatus;
-export const getGroupsError = (state: RootState) => state.images.groupsError;
-export const getSelectedGroupId = (state: RootState) => state.images.selectedGroupId;
-
-// 添加一个筛选照片的选择器
 export const selectFilteredImages = (state: RootState) => {
-  const images = state.images.list;
-  const selectedGroupId = state.images.selectedGroupId;
-  
+  // 根据分组 ID 过滤照片
+  const { list, selectedGroupId } = state.images;
   if (selectedGroupId === null) {
-    return images; // 如果没有选择分组，返回所有照片
+    return list;
+  }
+  return list.filter(image => image.groups.includes(selectedGroupId));
+};
+
+// 添加新的选择器，专门用于"我的照片"页面
+export const selectMyImages = (state: RootState) => {
+  // 获取当前用户和照片列表
+  const currentUser = state.auth.user;
+  const { list, selectedGroupId } = state.images;
+  
+  if (!currentUser) return [];
+  
+  // 先按照所有者过滤
+  let result = list.filter(img => {
+    if (!img || img.owner === null || img.owner === undefined) return false;
+    
+    // 如果 owner 是数字类型
+    if (typeof img.owner === 'number') {
+      return img.owner === currentUser.id;
+    }
+    
+    // 如果 owner 是字符串类型
+    if (typeof img.owner === 'string') {
+      // 检查是否为字符串形式的数字 ID
+      if (!isNaN(Number(img.owner))) {
+        return Number(img.owner) === currentUser.id;
+      }
+      // 否则认为是用户名
+      return img.owner === currentUser.username;
+    }
+    
+    return false;
+  });
+  
+  // 然后再按照选定的分组过滤（如果有）
+  if (selectedGroupId !== null) {
+    result = result.filter(image => image.groups.includes(selectedGroupId));
   }
   
-  // 过滤属于选中分组的照片
-  return images.filter(image => 
-    image.groups && image.groups.includes(selectedGroupId)
-  );
+  return result;
 };
+export const selectImagesStatus = (state: RootState) => state.images.status;
+export const selectImagesError = (state: RootState) => state.images.error;
+export const selectSelectedImageIds = (state: RootState) => state.images.selectedImageIds;
+export const selectDeleteImageStatus = (state: RootState) => state.images.deleteStatus;
+export const selectAllGroups = (state: RootState) => state.images.groups;
+export const selectUploadStatus = (state: RootState) => state.images.uploadStatus;
+export const selectUploadError = (state: RootState) => state.images.uploadError;
+export const getUploadStatus = (state: RootState) => state.images.uploadStatus || 'idle';
+export const getGroupsStatus = (state: RootState) => state.images.groupsStatus || 'idle';
+export const getGroupsError = (state: RootState) => state.images.groupsError || null;
+export const selectCurrentImage = (state: RootState) => state.images.currentImage;
+export const selectDetailStatus = (state: RootState) => state.images.detailStatus;
+export const selectDetailError = (state: RootState) => state.images.detailError;
+export const selectUpdateStatus = (state: RootState) => state.images.updateStatus;
+export const selectUpdateError = (state: RootState) => state.images.updateError;
+export const selectDeleteStatus = (state: RootState) => state.images.deleteStatus;
+export const selectDeleteError = (state: RootState) => state.images.deleteError;
+export const selectSelectedGroupId = (state: RootState) => state.images.selectedGroupId;
+export const selectGroups = (state: RootState) => state.images.groups;
+export const selectGroupsError = (state: RootState) => state.images.groupsError;
+export const selectGroupsStatus = (state: RootState) => state.images.groupsStatus;
+export const selectImageDetail = (state: RootState) => state.images.currentImage;
+export const getImageDetailStatus = (state: RootState) => state.images.detailStatus || 'idle';
+export const getImageDetailError = (state: RootState) => state.images.detailError;

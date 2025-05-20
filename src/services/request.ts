@@ -1,4 +1,5 @@
 import { extend } from 'umi-request';
+import type { RequestMethod } from 'umi-request';
 
 // 你可以在这里配置 umi-request 的全局设置，例如：
 // - prefix: API 前缀 (如果 Vite 代理配置了 /api，这里可以不设置或设置为 /api)
@@ -18,14 +19,36 @@ const errorHandler = (error: { response: Response, data?: any, request?: any }) 
   return response; // 或者 throw error;
 };
 
+// 扩展 RequestMethod 类型，使其包含 prefix 属性
+interface ExtendedRequestMethod extends RequestMethod {
+  prefix: string;
+}
+
 // 使用直接导入的 extend 函数创建请求实例
 const extendRequest = extend({
   prefix: '/api', // 假设 Vite 代理配置了 /api 指向 http://127.0.0.1:8000
   errorHandler,
-  // 你可以添加默认的 headers 等
-  // headers: {
-  //   'Content-Type': 'application/json',
-  // },
+  // 添加默认请求头
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
+}) as ExtendedRequestMethod;
+
+// 添加请求拦截器，自动为每个请求添加认证头
+extendRequest.interceptors.request.use((url, options) => {
+  const token = localStorage.getItem('token');
+  
+  if (token) {
+    const headers = {
+      ...options.headers,
+      Authorization: `Bearer ${token}` // 使用Bearer令牌格式，与auth模块保持一致
+    };
+    return { url, options: { ...options, headers } };
+  }
+  
+  console.warn('No authentication token found for request:', url);
+  return { url, options };
 });
 
 export default extendRequest;

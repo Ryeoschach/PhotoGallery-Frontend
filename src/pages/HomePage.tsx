@@ -1,8 +1,9 @@
 import React from 'react';
-import { Typography } from 'antd';
+import { Typography, Row, Col, Space } from 'antd';
 // import { UserOutlined } from '@ant-design/icons';
 // import { Link } from 'react-router-dom';
 import ImageGrid from '../features/images/ImageGrid';
+import GroupSelector from '../features/images/GroupSelector';
 
 const { Title, Paragraph } = Typography;
 
@@ -15,6 +16,16 @@ const HomePage: React.FC = () => {
       <Paragraph style={{ textAlign: 'center', fontSize: '16px' }}>
         A React + Django application for managing users and photos
       </Paragraph>
+      
+      <Row gutter={[16, 24]}>
+        <Col span={24}>
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <div style={{ marginBottom: 16 }}>
+              <GroupSelector />
+            </div>
+          </Space>
+        </Col>
+      </Row>
       
       {/* <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={8}>

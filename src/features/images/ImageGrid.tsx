@@ -1,327 +1,164 @@
-import React, { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { List, Card, Image as AntImage, Typography, Checkbox } from 'antd';
+import { Link } from 'react-router-dom';
 import { 
-  Card, 
-  Button, 
-  Checkbox, 
-  Row, 
-  Col, 
-  Spin, 
-  Alert,
-  Popconfirm,
-  message,
-  Modal,
-  Form,
-  Input
-} from 'antd';
-import { PlusOutlined, DeleteOutlined, AppstoreAddOutlined } from '@ant-design/icons';
-import { 
-  fetchImages, 
-  selectFilteredImages,
-  getImagesStatus, 
-  getImagesError,
+  selectFilteredImages, 
+  selectSelectedImageIds,
   toggleImageSelection,
-  clearSelectedImages,
-  selectAllImagesAction,
-  bulkDeleteImages,
-  getSelectedImageIds,
-  createGroup
+  fetchImages,
+  selectImagesStatus
 } from './imagesSlice';
-import type { Image as ImageType } from './imagesSlice';
 import type { AppDispatch } from '../../app/store';
-import ImageUpload from './ImageUpload';
-import GroupSelector from './GroupSelector';
-import './ImageGrid.css';
+// import type { Image } from './types';
 
-const { Meta } = Card;
+interface ImageGridProps {
+  selectionMode?: boolean;  // 是否启用选择模式
+  filter?: string;          // 过滤条件，如 'mine'、'all' 等
+}
 
-
-const ImageGrid: React.FC = () => {
+const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = 'all' }) => {
   const dispatch = useDispatch<AppDispatch>();
-  const navigate = useNavigate();
-  
   const images = useSelector(selectFilteredImages);
-  const status = useSelector(getImagesStatus);
-  const error = useSelector(getImagesError);
-  const selectedImageIds = useSelector(getSelectedImageIds);
+  const selectedImageIds = useSelector(selectSelectedImageIds);
+  const currentUser = useSelector((state: any) => state.auth.user); // 假设 currentUser.id 是 number, currentUser.username 是 string
+  const imagesStatus = useSelector(selectImagesStatus);
   
-  const [uploadModalVisible, setUploadModalVisible] = useState(false);
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [createGroupModalVisible, setCreateGroupModalVisible] = useState(false);
-  const [form] = Form.useForm();
-  
+  // 在组件挂载时加载图片数据
   useEffect(() => {
-    if (status === 'idle') {
-      dispatch(fetchImages());
+    if (imagesStatus === 'idle') {
+      console.log('Fetching images with filter:', filter);
+      // 根据filter参数决定是否只获取当前用户的照片
+      if (filter === 'mine') {
+        dispatch(fetchImages({ mine: true }));
+      } else {
+        dispatch(fetchImages());
+      }
     }
-  }, [status, dispatch]);
+  }, [dispatch, imagesStatus, filter]);
   
-  const handleImageClick = (id: number) => {
-    if (selectionMode) {
-      dispatch(toggleImageSelection(id));
-    } else {
-      navigate(`/images/${id}`);
-    }
-  };
-  
-  const enterSelectionMode = () => {
-    setSelectionMode(true);
-  };
-  
-  const exitSelectionMode = () => {
-    setSelectionMode(false);
-    dispatch(clearSelectedImages());
-  };
-  
-  const handleBulkDelete = async () => {
-    if (selectedImageIds.length === 0) return;
-    
-    try {
-      await dispatch(bulkDeleteImages(selectedImageIds)).unwrap();
-      message.success(`成功删除 ${selectedImageIds.length} 张照片`);
-      exitSelectionMode();
-    } catch (error) {
-      message.error('批量删除失败');
-    }
-  };
-  
-  const handleCreateGroup = async () => {
-    try {
-      const values = await form.validateFields();
-      
-      await dispatch(createGroup({
-        name: values.name,
-        description: values.description || ''
-      })).unwrap();
-      
-      message.success(`分组 "${values.name}" 创建成功`);
-      setCreateGroupModalVisible(false);
-      form.resetFields();
-    } catch (error) {
-      console.error('Failed to create group:', error);
-      message.error('创建分组失败');
-    }
-  };
-  
-  const renderToolbar = () => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <GroupSelector />
-        <Button 
-          icon={<AppstoreAddOutlined />} 
-          onClick={() => setCreateGroupModalVisible(true)} 
-          style={{ marginLeft: 8 }}
-        >
-          创建分组
-        </Button>
-      </div>
-      
-      <div>
-        {selectionMode ? (
-          <>
-            <Checkbox 
-              onChange={(e) => {
-                if (e.target.checked) {
-                  dispatch(selectAllImagesAction());
-                } else {
-                  dispatch(clearSelectedImages());
-                }
-              }} 
-              checked={selectedImageIds.length > 0 && selectedImageIds.length === images.length}
-              indeterminate={selectedImageIds.length > 0 && selectedImageIds.length < images.length}
-              style={{ marginRight: 8 }}
-            >
-              全选
-            </Checkbox>
-            <Popconfirm
-              title="删除选中的照片"
-              description={`确定要删除选中的 ${selectedImageIds.length} 张照片吗？`}
-              onConfirm={handleBulkDelete}
-              okText="确定"
-              cancelText="取消"
-              disabled={selectedImageIds.length === 0}
-            >
-              <Button 
-                type="primary" 
-                danger 
-                icon={<DeleteOutlined />}
-                disabled={selectedImageIds.length === 0}
-                style={{ marginRight: 8 }}
-              >
-                删除选中 ({selectedImageIds.length})
-              </Button>
-            </Popconfirm>
-            <Button onClick={exitSelectionMode}>取消选择</Button>
-          </>
-        ) : (
-          <>
-            <Button 
-              type="primary" 
-              icon={<PlusOutlined />} 
-              onClick={() => setUploadModalVisible(true)}
-              style={{ marginRight: 8 }}
-            >
-              上传照片
-            </Button>
-            <Button onClick={enterSelectionMode}>选择照片</Button>
-          </>
-        )}
-      </div>
-    </div>
-  );
+  const filteredImages = React.useMemo(() => {
+    console.log('过滤图片数据:', { 
+      filter, 
+      currentUser, 
+      totalImages: images.length, 
+      imageSample: images.length > 0 ? images[0] : 'No images',
+      allOwners: images.map(img => img?.owner)
+    });
 
-  const renderImageGrid = () => (
-    <Row gutter={[16, 16]}>
-      {images.map((image: ImageType) => (
-        <Col xs={24} sm={12} md={8} lg={6} key={image.id}>
-          <div 
-            style={{ 
-              position: 'relative', 
-              cursor: selectionMode ? 'pointer' : 'pointer',
-              marginBottom: 20
-            }}
-            onClick={() => handleImageClick(image.id)}
-          >
-            <Card
-              hoverable
-              style={{ overflow: 'visible', position: 'relative' }}
-              styles={{ body: { overflow: 'visible' } }}
-              cover={
-                <div className="simple-hover-container">
-                  <img
-                    className="simple-hover-image"
-                    alt={image.name}
-                    src={image.image}
-                    onClick={() => handleImageClick(image.id)}
-                  />
-                </div>
-              }
-            >
-              <Meta 
-                title={image.name} 
-                description={
-                  image.description ? 
-                    (image.description.length > 50 ? 
-                      `${image.description.substring(0, 50)}...` : 
-                      image.description) : 
-                    '暂无描述'
-                } 
-              />
-            </Card>
-            
-            {selectionMode && (
-              <Checkbox
-                checked={selectedImageIds.includes(image.id)}
-                style={{
-                  position: 'absolute',
-                  top: 8,
-                  right: 8,
-                  background: 'rgba(255, 255, 255, 0.8)',
-                  padding: 4,
-                  borderRadius: 4,
-                  zIndex: 2000 // 确保在所有内容之上
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  dispatch(toggleImageSelection(image.id));
-                }}
-              />
-            )}
-          </div>
-        </Col>
-      ))}
-    </Row>
-  );
-  
-  if (status === 'loading' && images.length === 0) {
-    return (
-      <div style={{ width: '100%', minWidth: '320px', maxWidth: '1280px' }}>
-        {renderToolbar()}
-        <div style={{ textAlign: 'center', marginTop: 50 }}>
-          <Spin size="large" />
-          <p style={{ marginTop: 16 }}>加载照片中...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  if (status === 'failed') {
-    return (
-      <div style={{ width: '100%', minWidth: '320px', maxWidth: '1280px' }}>
-        {renderToolbar()}
-        <Alert
-          message="错误"
-          description={`加载照片失败: ${error}`}
-          type="error"
-          showIcon
-        />
-      </div>
-    );
-  }
-  
-  if (images.length === 0) {
-    return (
-      <div style={{ width: '100%', minWidth: '320px', maxWidth: '1280px' }}>
-        {renderToolbar()}
-        <div style={{ textAlign: 'center', marginTop: 50 }}>
-          <div style={{ fontSize: 64, color: '#cccccc' }}>
-            <PlusOutlined />
-          </div>
-          <p style={{ marginTop: 16, color: '#999999' }}>
-            {status === 'succeeded' ? '没有照片，点击"上传照片"添加' : '加载照片中...'}
-          </p>
-        </div>
-      </div>
-    );
-  }
-  
+    if (filter === 'mine' && currentUser) {
+      return images.filter(img => {
+        if (!img) return false; // 图像对象本身可能为空
+        if (img.owner === null || img.owner === undefined) {
+          console.log('图片没有所有者:', img.id, img.name);
+          return false; 
+        }
+        
+        // 根据你的实际数据结构进行调整
+        // 如果 owner 存储的是数字 ID
+        if (typeof img.owner === 'number') {
+          const isOwner = img.owner === currentUser.id;
+          console.log(`比较图片 ${img.id} - 所有者ID ${img.owner} vs 用户ID ${currentUser.id}: ${isOwner}`);
+          return isOwner;
+        }
+        
+        // 如果 owner 存储的是字符串
+        if (typeof img.owner === 'string') {
+          // 检查是否为字符串形式的数字 ID
+          if (!isNaN(Number(img.owner))) {
+            const isOwner = Number(img.owner) === currentUser.id;
+            console.log(`比较图片 ${img.id} - 所有者ID(字符串数字) ${img.owner} vs 用户ID ${currentUser.id}: ${isOwner}`);
+            return isOwner;
+          }
+          // 否则认为是用户名
+          const isOwner = img.owner === currentUser.username;
+          console.log(`比较图片 ${img.id} - 所有者名称 ${img.owner} vs 用户名 ${currentUser.username}: ${isOwner}`);
+          return isOwner;
+        }
+        
+        return false; // 如果 owner 类型不匹配
+      });
+    }
+    return images;
+  }, [images, filter, currentUser]);
+
+  // 处理图片选择/取消选择
+  const handleImageSelect = (id: number) => {
+    dispatch(toggleImageSelection(id));
+  };
+
   return (
-    <div style={{ width: '100%', minWidth: '320px', maxWidth: '1280px' }}>
-      {renderToolbar()}
-      {renderImageGrid()}
-      
-      <ImageUpload 
-        visible={uploadModalVisible} 
-        onClose={() => setUploadModalVisible(false)} 
-      />
-      
-      <Modal
-        title="创建新分组"
-        open={createGroupModalVisible}
-        onOk={handleCreateGroup}
-        onCancel={() => {
-          setCreateGroupModalVisible(false);
-          form.resetFields();
-        }}
-        okText="创建"
-        cancelText="取消"
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          name="create_group_form"
-        >
-          <Form.Item
-            name="name"
-            label="分组名称"
-            rules={[{ required: true, message: '请输入分组名称' }]}
-          >
-            <Input placeholder="例如：风景、人物、动物等" />
-          </Form.Item>
-          
-          <Form.Item
-            name="description"
-            label="描述"
-          >
-            <Input.TextArea 
-              placeholder="分组的简要描述（可选）" 
-              rows={3}
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
-    </div>
+    <List
+      grid={{
+        gutter: 16,
+        xs: 1,
+        sm: 2,
+        md: 3,
+        lg: 4,
+        xl: 4,
+        xxl: 6,
+      }}
+      dataSource={filteredImages}
+      renderItem={(image) => {
+        if (!image) return null;
+        
+        const isSelected = selectedImageIds.includes(image.id);
+        
+        return (
+          <List.Item>
+            <div style={{ position: 'relative' }}>
+              {selectionMode && (
+                <Checkbox
+                  checked={isSelected}
+                  onChange={() => handleImageSelect(image.id)}
+                  style={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    zIndex: 1,
+                    background: 'rgba(255, 255, 255, 0.7)',
+                    borderRadius: 4,
+                    padding: 4
+                  }}
+                />
+              )}
+              <Card
+                hoverable
+                cover={
+                  <Link to={`/images/${image.id}`}>
+                    <AntImage
+                      src={image?.thumbnail || image?.image}
+                      alt={image?.name || 'Image'}
+                      style={{ 
+                        width: '100%', 
+                        height: 200, 
+                        objectFit: 'cover',
+                        filter: isSelected ? 'brightness(0.8)' : 'none'
+                      }}
+                      preview={false}
+                      fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMIAAADDCAYAAADQvc6UAAABRWlDQ1BJQ0MgUHJvZmlsZQAAKJFjYGASSSwoyGFhYGDIzSspCnJ3UoiIjFJgf8LAwSDCIMogwMCcmFxc4BgQ4ANUwgCjUcG3awyMIPqyLsis7PPOq3QdDFcvjV3jOD1boQVTPQrgSkktTgbSf4A4LbmgqISBgTEFyFYuLykAsTuAbJEioKOA7DkgdjqEvQHEToKwj4DVhAQ5A9k3gGyB5IxEoBmML4BsnSQk8XQkNtReEOBxcfXxUQg1Mjc0dyHgXNJBSWpFCYh2zi+oLMpMzyhRcASGUqqCZ16yno6CkYGRAQMDKMwhqj/fAIcloxgHQqxAjIHBEugw5sUIsSQpBobtQPdLciLEVJYzMPBHMDBsayhILEqEO4DxG0txmrERhM29nYGBddr//5/DGRjYNRkY/l7////39v///y4Dmn+LgeHANwDrkl1AuO+pmgAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAwqADAAQAAAABAAAAwwAAAAD9b/HnAAAHlklEQVR4Ae3dP3PTWBSGcbGzM6GCKqlIBRV0dHRJFarQ0eUT8LH4BnRU0NHR0UEFVdIlFRV7TzRksomPY8uykTk/zewQfKw/9znv4yvJynLv4uLiV2dBoDiBf4qP3/ARuCRABEFAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghgg0Aj8i0JO4OzsrPv69Wv+hi2qPHr0qNvf39+iI97soRIh4f3z58/u7du3SXX7Xt7Z2enevHmzfQe+oSN2apSAPj09TSrb+XKI/f379+08+A0cNRE2ANkupk+ACNPvkSPcAAEibACyXUyfABGm3yNHuAECRNgAZLuYPgEirKlHu7u7XdyytGwHAd8jjNyng4OD7vnz51dbPT8/7z58+NB9+/bt6jU/TI+AGWHEnrx48eJ/EsSmHzx40L18+fLyzxF3ZVMjEyDCiEDjMYZZS5wiPXnyZFbJaxMhQIQRGzHvWR7XCyOCXsOmiDAi1HmPMMQjDpbpEiDCiL358eNHurW/5SnWdIBbXiDCiA38/Pnzrce2YyZ4//59F3ePLNMl4PbpiL2J0L979+7yDtHDhw8vtzzvdGnEXdvUigSIsCLAWavHp/+qM0BcXMd/q25n1vF57TYBp0a3mUzilePj4+7k5KSLb6gt6ydAhPUzXnoPR0dHl79WGTNCfBnn1uvSCJdegQhLI1vvCk+fPu2ePXt2tZOYEV6/fn31dz+shwAR1sP1cqvLntbEN9MxA9xcYjsxS1jWR4AIa2Ibzx0tc44fYX/16lV6NDFLXH+YL32jwiACRBiEbf5KcXoTIsQSpzXx4N28Ja4BQoK7rgXiydbHjx/P25TaQAJEGAguWy0+2Q8PD6/Ki4R8EVl+bzBOnZY95fq9rj9zAkTI2SxdidBHqG9+skdw43borCXO/ZcJdraPWdv22uIEiLA4q7nvvCug8WTqzQveOH26fodo7g6uFe/a17W3+nFBAkRYENRdb1vkkz1CH9cPsVy/jrhr27PqMYvENYNlHAIesRiBYwRy0V+8iXP8+/fvX11Mr7L7ECueb/r48eMqm7FuI2BGWDEG8cm+7G3NEOfmdcTQw4h9/55lhm7DekRYKQPZF2ArbXTAyu4kDYB2YxUzwg0gi/41ztHnfQG26HbGel/crVrm7tNY+/1btkOEAZ2M05r4FB7r9GbAIdxaZYrHdOsgJ/wCEQY0J74TmOKnbxxT9n3FgGGWWsVdowHtjt9Nnvf7yQM2aZU/TIAIAxrw6dOnAWtZZcoEnBpNuTuObWMEiLAx1HY0ZQJEmHJ3HNvGCBBhY6jtaMoEiJB0Z29vL6ls58vxPcO8/zfrdo5qvKO+d3Fx8Wu8zf1dW4p/cPzLly/dtv9Ts/EbcvGAHhHyfBIhZ6NSiIBTo0LNNtScABFyNiqFCBChULMNNSdAhJyNSiECRCjUbEPNCRAhZ6NSiAARCjXbUHMCRMjZqBQiQIRCzTbUnAARcjYqhQgQoVCzDTUnQIScjUohAkQo1GxDzQkQIWejUogAEQo121BzAkTI2agUIkCEQs021JwAEXI2KoUIEKFQsw01J0CEnI1KIQJEKNRsQ80JECFno1KIABEKNdtQcwJEyNmoFCJAhELNNtScABFyNiqFCBChULMNNSdAhJyNSiECRCjUbEPNCRAhZ6NSiAARCjXbUHMCRMjZqBQiQIRCzTbUnAARcjYqhQgQoVCzDTUnQIScjUohAkQo1GxDzQkQIWejUogAEQo121BzAkTI2agUIkCEQs021JwAEXI2KoUIEKFQsw01J0CEnI1KIQJEKNRsQ80JECFno1KIABEKNdtQcwJEyNmoFCJAhELNNtScABFyNiqFCBChULMNNSdAhJyNSiEC/wGgKKC4YMA4TAAAAABJRU5ErkJggg=="
+                    />
+                  </Link>
+                }
+              >
+                <Card.Meta
+                  title={image?.name || 'Untitled'}
+                  description={
+                    <div>
+                      {image?.description && (
+                        <Typography.Paragraph ellipsis={{ rows: 2 }}>
+                          {image.description}
+                        </Typography.Paragraph>
+                      )}
+                    </div>
+                  }
+                />
+              </Card>
+            </div>
+          </List.Item>
+        );
+      }}
+    />
   );
 };
 

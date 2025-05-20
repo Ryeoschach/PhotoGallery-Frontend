@@ -1,37 +1,34 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
-  Select, 
+  Typography, 
+  Table, 
+  Space, 
   Button, 
   Modal, 
   Form, 
   Input, 
-  Divider, 
-  Space, 
-  message, 
-  Popconfirm
+  Popconfirm,
+  message
 } from 'antd';
-import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { 
   fetchGroups, 
-  createGroup,
-  updateGroup,
+  createGroup, 
+  updateGroup, 
   deleteGroup,
   selectAllGroups, 
-  getGroupsStatus,
-  selectSelectedGroupId,
-  setSelectedGroup
-} from './imagesSlice';
-import type { AppDispatch } from '../../app/store';
-import type { Group } from './imagesSlice';
+  getGroupsStatus
+} from '../features/images/imagesSlice';
+import type { AppDispatch } from '../app/store';
+import type { Group } from '../features/images/imagesSlice';
 
-const { Option } = Select;
+const { Title } = Typography;
 
-const GroupSelector: React.FC = () => {
+const GroupsPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const groups = useSelector(selectAllGroups);
   const status = useSelector(getGroupsStatus);
-  const selectedGroupId = useSelector(selectSelectedGroupId);
   
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
@@ -43,12 +40,6 @@ const GroupSelector: React.FC = () => {
   useEffect(() => {
     dispatch(fetchGroups());
   }, [dispatch]);
-  
-  // 处理分组过滤改变
-  const handleGroupChange = (value: number | null) => {
-    console.log('Group selected:', value);  // 调试日志
-    dispatch(setSelectedGroup(value));
-  };
   
   // 打开创建分组的弹窗
   const showCreateGroupModal = () => {
@@ -125,90 +116,83 @@ const GroupSelector: React.FC = () => {
     try {
       await dispatch(deleteGroup(groupId)).unwrap();
       message.success('分组删除成功');
-      
-      // 如果删除的是当前选中的分组，清除选择
-      if (selectedGroupId === groupId) {
-        dispatch(setSelectedGroup(null));
-      }
     } catch (error) {
       console.error('Failed to delete group:', error);
       message.error('删除分组失败');
     }
   };
   
-  // 自定义弹出菜单，增加创建按钮 (使用 popupRender 替代 dropdownRender)
-  const popupRender = (menu: React.ReactElement) => (
-    <>
-      {menu}
-      <Divider style={{ margin: '8px 0' }} />
-      <Space style={{ padding: '0 8px 4px' }}>
-        <Button type="text" icon={<PlusOutlined />} onClick={showCreateGroupModal}>
-          创建新分组
-        </Button>
-      </Space>
-    </>
-  );
-  
-  // 自定义选项渲染，添加编辑和删除按钮
-  const customOptionRender = (group: Group) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <span>{group.name}</span>
-      <Space>
-        <Button 
-          type="text" 
-          icon={<EditOutlined />} 
-          size="small"
-          onClick={(e) => {
-            e.stopPropagation();
-            showEditGroupModal(group);
-          }}
-        />
-        <Popconfirm
-          title="删除分组"
-          description="确定要删除这个分组吗？这不会删除分组中的照片。"
-          onConfirm={(e) => {
-            e?.stopPropagation();
-            handleDeleteGroup(group.id);
-          }}
-          okText="确定"
-          cancelText="取消"
-          onCancel={(e) => e?.stopPropagation()}
-        >
+  // 表格列配置
+  const columns = [
+    {
+      title: '名称',
+      dataIndex: 'name',
+      key: 'name',
+      render: (text: string) => <span>{text}</span>,
+    },
+    {
+      title: '描述',
+      dataIndex: 'description',
+      key: 'description',
+      render: (text: string | null) => <span>{text || '无描述'}</span>,
+    },
+    {
+      title: '操作',
+      key: 'action',
+      render: (_: any, record: Group) => (
+        <Space size="middle">
           <Button 
             type="text" 
-            icon={<DeleteOutlined />} 
-            size="small"
-            danger
-            onClick={(e) => e.stopPropagation()}
-          />
-        </Popconfirm>
-      </Space>
-    </div>
-  );
-  
-  return (
-    <>
-      <Select
-        style={{ width: 250 }}
-        placeholder="选择分组过滤"
-        value={selectedGroupId === null ? undefined : selectedGroupId}
-        onChange={handleGroupChange}
-        allowClear
-        loading={status === 'loading'}
-        popupRender={popupRender}  // 使用 popupRender 替代 dropdownRender
-        optionLabelProp="label"
-      >
-        {groups.map(group => (
-          <Option 
-            key={group.id} 
-            value={group.id} 
-            title={group.description}
-            label={group.name}
+            icon={<EditOutlined />}
+            onClick={() => showEditGroupModal(record)}
           >
-            {customOptionRender(group)}
-          </Option>
-        ))}
-      </Select>
+            编辑
+          </Button>
+          <Popconfirm
+            title="删除分组"
+            description="确定要删除这个分组吗？这不会删除分组中的照片。"
+            onConfirm={() => handleDeleteGroup(record.id)}
+            okText="确定"
+            cancelText="取消"
+          >
+            <Button 
+              type="text" 
+              danger
+              icon={<DeleteOutlined />}
+            >
+              删除
+            </Button>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
+  return (
+    <div>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: 20 
+      }}>
+        <Title level={2}>分组管理</Title>
+        <Button 
+          type="primary" 
+          icon={<PlusOutlined />}
+          onClick={showCreateGroupModal}
+        >
+          创建分组
+        </Button>
+      </div>
+      
+      <Table 
+        columns={columns} 
+        dataSource={groups.map(group => ({...group, key: group.id}))} 
+        loading={status === 'loading'} 
+        pagination={false}
+        rowKey="id"
+      />
       
       {/* 创建分组的弹窗 */}
       <Modal
@@ -277,8 +261,8 @@ const GroupSelector: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
-    </>
+    </div>
   );
 };
 
-export default GroupSelector;
+export default GroupsPage;
