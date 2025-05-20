@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from '../../app/store';
 import apiClient from '../../services/request';
@@ -446,6 +446,8 @@ const imagesSlice = createSlice({
       .addCase(fetchImages.pending, (state) => {
         state.status = 'loading';
         state.error = null;
+        // 清空当前列表，避免在页面间切换时显示旧数据
+        state.list = [];
       })
       .addCase(fetchImages.fulfilled, (state, action) => {
         state.status = 'succeeded';
@@ -648,52 +650,56 @@ export default imagesSlice.reducer;
 
 // 导出 selectors
 export const selectAllImages = (state: RootState) => state.images.list;
-export const selectFilteredImages = (state: RootState) => {
-  // 根据分组 ID 过滤照片
-  const { list, selectedGroupId } = state.images;
-  if (selectedGroupId === null) {
-    return list;
+export const selectFilteredImages = createSelector(
+  [(state: RootState) => state.images.list,
+   (state: RootState) => state.images.selectedGroupId],
+  (list, selectedGroupId) => {
+    // 根据分组 ID 过滤照片
+    if (selectedGroupId === null) {
+      return list;
+    }
+    return list.filter(image => image.groups.includes(selectedGroupId));
   }
-  return list.filter(image => image.groups.includes(selectedGroupId));
-};
+);
 
 // 添加新的选择器，专门用于"我的照片"页面
-export const selectMyImages = (state: RootState) => {
-  // 获取当前用户和照片列表
-  const currentUser = state.auth.user;
-  const { list, selectedGroupId } = state.images;
-  
-  if (!currentUser) return [];
-  
-  // 先按照所有者过滤
-  let result = list.filter(img => {
-    if (!img || img.owner === null || img.owner === undefined) return false;
+export const selectMyImages = createSelector(
+  [(state: RootState) => state.auth.user, // 获取用户
+   (state: RootState) => state.images.list, // 获取照片列表
+   (state: RootState) => state.images.selectedGroupId], // 获取选中的分组ID
+  (currentUser, imageList, selectedGroupId) => {
+    if (!currentUser) return [];
     
-    // 如果 owner 是数字类型
-    if (typeof img.owner === 'number') {
-      return img.owner === currentUser.id;
-    }
-    
-    // 如果 owner 是字符串类型
-    if (typeof img.owner === 'string') {
-      // 检查是否为字符串形式的数字 ID
-      if (!isNaN(Number(img.owner))) {
-        return Number(img.owner) === currentUser.id;
+    // 先按照所有者过滤
+    let result = imageList.filter(img => {
+      if (!img || img.owner === null || img.owner === undefined) return false;
+      
+      // 如果 owner 是数字类型
+      if (typeof img.owner === 'number') {
+        return img.owner === currentUser.id;
       }
-      // 否则认为是用户名
-      return img.owner === currentUser.username;
+      
+      // 如果 owner 是字符串类型
+      if (typeof img.owner === 'string') {
+        // 检查是否为字符串形式的数字 ID
+        if (!isNaN(Number(img.owner))) {
+          return Number(img.owner) === currentUser.id;
+        }
+        // 否则认为是用户名
+        return img.owner === currentUser.username;
+      }
+      
+      return false;
+    });
+    
+    // 然后再按照选定的分组过滤（如果有）
+    if (selectedGroupId !== null) {
+      result = result.filter(image => image.groups.includes(selectedGroupId));
     }
     
-    return false;
-  });
-  
-  // 然后再按照选定的分组过滤（如果有）
-  if (selectedGroupId !== null) {
-    result = result.filter(image => image.groups.includes(selectedGroupId));
+    return result;
   }
-  
-  return result;
-};
+);
 export const selectImagesStatus = (state: RootState) => state.images.status;
 export const selectImagesError = (state: RootState) => state.images.error;
 export const selectSelectedImageIds = (state: RootState) => state.images.selectedImageIds;

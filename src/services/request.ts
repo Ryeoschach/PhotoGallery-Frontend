@@ -40,14 +40,23 @@ extendRequest.interceptors.request.use((url, options) => {
   const token = localStorage.getItem('token');
   
   if (token) {
+    // 确保headers存在
     const headers = {
       ...options.headers,
-      Authorization: `Bearer ${token}` // 使用Bearer令牌格式，与auth模块保持一致
+      'Authorization': `Bearer ${token}`
     };
-    return { url, options: { ...options, headers } };
+    
+    // 调试日志
+    console.log(`Adding auth header to ${url}`, headers);
+    
+    return {
+      url,
+      options: { ...options, headers }
+    };
+  } else {
+    console.log(`No token found for request to ${url}`);
   }
   
-  console.warn('No authentication token found for request:', url);
   return { url, options };
 });
 

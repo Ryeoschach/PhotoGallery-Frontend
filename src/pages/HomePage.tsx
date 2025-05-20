@@ -1,13 +1,28 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Typography, Row, Col, Space } from 'antd';
 // import { UserOutlined } from '@ant-design/icons';
 // import { Link } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchImages, selectImagesStatus } from '../features/images/imagesSlice';
 import ImageGrid from '../features/images/ImageGrid';
 import GroupSelector from '../features/images/GroupSelector';
+import type { AppDispatch } from '../app/store';
 
 const { Title, Paragraph } = Typography;
 
 const HomePage: React.FC = () => {
+  const dispatch = useDispatch<AppDispatch>();
+  const imagesStatus = useSelector(selectImagesStatus);
+  
+  // 确保在首页加载所有照片，无论从哪个页面导航过来
+  useEffect(() => {
+    // 仅在未加载或加载失败时重新获取照片
+    if (imagesStatus === 'idle' || imagesStatus === 'failed') {
+      console.log('HomePage: Loading all images. Current status:', imagesStatus);
+      dispatch(fetchImages()); // 不传递mine参数，获取所有照片
+    }
+  }, [dispatch, imagesStatus]);
+  
   return (
     <div style={{ width: '100%', minWidth: '320px', maxWidth: '1280px' }}>
       <Title level={1} style={{ textAlign: 'center' }}>
@@ -27,53 +42,8 @@ const HomePage: React.FC = () => {
         </Col>
       </Row>
       
-      {/* <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={8}>
-          <Card 
-            title="User Management" 
-            hoverable
-            style={{ height: '100%' }}
-          >
-            <Paragraph>
-              Browse and manage user accounts in the system.
-            </Paragraph>
-            <Button type="primary" icon={<UserOutlined />}>
-              <Link to="/users">View Users</Link>
-            </Button>
-          </Card>
-        </Col>
-        
-        <Col xs={24} sm={12} lg={8}>
-          <Card 
-            title="Photos" 
-            hoverable
-            style={{ height: '100%' }}
-          >
-            <Paragraph>
-              Browse the photo collection from all users.
-            </Paragraph>
-            <Button type="primary">
-              <Link to="/photos">View Photos</Link>
-            </Button>
-          </Card>
-        </Col>
-        
-        <Col xs={24} sm={12} lg={8}>
-          <Card 
-            title="About" 
-            hoverable
-            style={{ height: '100%' }}
-          >
-            <Paragraph>
-              Learn more about this application and how it was built.
-            </Paragraph>
-            <Button type="primary">
-              <Link to="/about">About Us</Link>
-            </Button>
-          </Card>
-        </Col>
-      </Row> */}
-      <ImageGrid />
+      {/* 显式传递filter="all"，确保不受其他页面影响 */}
+      <ImageGrid filter="all" />
     </div>
   );
 };

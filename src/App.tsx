@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { Layout, Menu, Button, Avatar, Dropdown } from 'antd';
 import { UserOutlined, LoginOutlined, LogoutOutlined, SettingOutlined, PictureOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import type { MenuProps } from 'antd';
 import './App.css';
-import { selectCurrentUser, selectIsAuthenticated, logoutUser } from './features/auth/authSlice';
+import { selectCurrentUser, selectIsAuthenticated, logoutUser, checkAuthStatus } from './features/auth/authSlice';
 import type { AppDispatch } from './app/store';
 
 const { Header, Content, Footer } = Layout;
@@ -15,6 +15,15 @@ const App: React.FC = () => {
   const currentUser = useSelector(selectCurrentUser);
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
+
+  // 在应用加载时检查认证状态
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      console.log('Found token in localStorage, restoring session');
+      dispatch(checkAuthStatus());
+    }
+  }, [dispatch]);
 
   // 退出登录
   const handleLogout = () => {

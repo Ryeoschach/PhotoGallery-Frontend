@@ -1,195 +1,129 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Typography, Button, Spin, Select, Space, message, Modal } from 'antd';
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
-import { 
-  fetchImages, 
-  selectMyImages,
-  selectImagesStatus, 
-  selectImagesError,
-  clearSelectedImages,
-  selectSelectedImageIds,
-  deleteImage,
-  selectDeleteImageStatus,
-  fetchGroups,
-  selectAllGroups,
-  setSelectedGroup
-} from '../features/images/imagesSlice';
+import { Button, Card, Typography, Modal, Space, Alert } from 'antd';
+import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import ImageGrid from '../features/images/ImageGrid';
-import ImageUploadForm from '../features/images/ImageUploadForm';
+import UploadForm from '../features/images/ImageUploadForm';
+import { fetchImages, selectMyImages, selectImagesStatus } from '../features/images/imagesSlice';
+import { selectIsAuthenticated } from '../features/auth/authSlice';
 import type { AppDispatch } from '../app/store';
+import { useNavigate } from 'react-router-dom';
 
 const { Title } = Typography;
-const { Option } = Select;
 
 const MyPhotosPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const images = useSelector(selectMyImages); // 使用选择器来过滤"我的照片"
-  const selectedImageIds = useSelector(selectSelectedImageIds);
-  const status = useSelector(selectImagesStatus);
-  const error = useSelector(selectImagesError);
-  const deleteStatus = useSelector(selectDeleteImageStatus);
-  const groups = useSelector(selectAllGroups);
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const myImages = useSelector(selectMyImages);
+  const imagesStatus = useSelector(selectImagesStatus);
   
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [filterGroup, setFilterGroup] = useState<number | null>(null);
-
+  const [isUploadModalVisible, setIsUploadModalVisible] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0); // 用于强制刷新组件
+  
+  // 使用ref来跟踪是否已经发送了初始请求
+  const initialFetchDoneRef = useRef<boolean>(false);
+  
+  // 如果用户未登录，重定向到登录页面
   useEffect(() => {
-    // 获取当前用户自己的照片，传入 mine=true 参数
-    dispatch(fetchImages({ mine: true }));
-    dispatch(fetchGroups());
-  }, [dispatch]);
-
-  // 处理上传照片
-  const handleOpenUploadModal = () => {
-    setShowUploadModal(true);
-  };
-
-  const handleCloseUploadModal = () => {
-    setShowUploadModal(false);
-    // 刷新照片列表，确保仍然只显示当前用户的照片
-    dispatch(fetchImages({ mine: true }));
-  };
-
-  // 处理删除所选照片
-  const handleDeleteSelected = () => {
-    if (selectedImageIds.length === 0) {
-      message.warning('请先选择要删除的照片');
-      return;
+    if (!isAuthenticated) {
+      console.log('User not authenticated, redirecting to login');
+      navigate('/login', { state: { from: '/my-photos' } });
     }
+  }, [isAuthenticated, navigate]);
+  
+  // 确保在组件挂载时加载照片数据
+  useEffect(() => {
+    // 仅在以下情况加载照片：
+    // 1. 用户已登录
+    // 2. 不在加载状态
+    // 3. 尚未执行初始加载或强制刷新被触发(refreshKey变化)
+    if (isAuthenticated && imagesStatus !== 'loading' && 
+        (!initialFetchDoneRef.current || refreshKey > 0)) {
+      console.log('Loading images for authenticated user. Status:', imagesStatus, 
+                  'Initial fetch done:', initialFetchDoneRef.current);
+      dispatch(fetchImages({ mine: true }));
+      initialFetchDoneRef.current = true;
+    }
+  }, [isAuthenticated, dispatch, imagesStatus, refreshKey]);
 
-    Modal.confirm({
-      title: '确认删除',
-      content: `确定要删除选中的 ${selectedImageIds.length} 张照片吗？此操作不可撤销。`,
-      okText: '确认',
-      cancelText: '取消',
-      okType: 'danger',
-      onOk: async () => {
-        try {
-          // 逐个删除选中的照片
-          const promises = selectedImageIds.map(id => dispatch(deleteImage(id)).unwrap());
-          await Promise.all(promises);
-          
-          message.success('照片删除成功');
-          dispatch(clearSelectedImages());
-          // 刷新照片列表，确保仍然显示的是用户自己的照片
-          dispatch(fetchImages({ mine: true }));
-        } catch (err) {
-          message.error('删除照片时出错');
-          console.error('Delete error:', err);
-        }
-      },
-    });
+  // 处理上传模态框
+  const handleOpenUploadModal = () => {
+    setIsUploadModalVisible(true);
   };
-
-  // 处理分组筛选
-  const handleGroupFilterChange = (value: number | null) => {
-    setFilterGroup(value);
-    // 更新 Redux 中的分组过滤状态
-    dispatch(setSelectedGroup(value));
+  
+  const handleCloseUploadModal = () => {
+    setIsUploadModalVisible(false);
+    // 关闭模态框后刷新照片列表，获取最新上传的照片
+    if (imagesStatus !== 'loading') {
+      console.log('Upload modal closed, refreshing images');
+      setRefreshKey(prevKey => prevKey + 1); // 刷新组件会触发上面的useEffect
+    }
   };
-
-  // 渲染加载状态
-  if (status === 'loading' && images.length === 0) {
-    return <div style={{ textAlign: 'center', padding: '50px' }}><Spin size="large" /></div>;
-  }
-
-  // 渲染错误状态
-  if (status === 'failed') {
-    return <div style={{ textAlign: 'center', padding: '50px' }}>
-      <Typography.Text type="danger">{error || '加载照片失败'}</Typography.Text>
-      <Button onClick={() => dispatch(fetchImages({ mine: true }))} style={{ marginTop: 16 }}>重试</Button>
-    </div>;
-  }
-
-  // 调试输出 - 检查当前用户信息
-  const currentUser = useSelector((state: any) => state.auth.user);
-  console.log('当前用户信息:', currentUser);
-
+  
+  // 刷新照片列表
+  const handleRefresh = () => {
+    if (imagesStatus !== 'loading') {
+      console.log('Manual refresh triggered');
+      setRefreshKey(prevKey => prevKey + 1); // 这会触发上面的useEffect
+    } else {
+      console.log('已经在加载中，跳过刷新请求');
+    }
+  };
+  
+  // 重要：移除条件返回，改为条件渲染
   return (
-    <div>
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: 20 
-      }}>
-        <Title level={2}>我的照片</Title>
-        <Space>
-          <Select
-            style={{ width: 200 }}
-            placeholder="按分组筛选"
-            allowClear
-            onChange={handleGroupFilterChange}
-            value={filterGroup}
-            popupRender={menu => (
-              <>
-                {menu}
-                <div style={{ padding: '8px', textAlign: 'center' }}>
-                  <Button 
-                    type="link" 
-                    icon={<PlusOutlined />}
-                    onClick={() => navigate('/groups')}
-                  >
-                    管理分组
-                  </Button>
-                </div>
-              </>
-            )}
-          >
-            {groups.map(group => (
-              <Option key={group.id} value={group.id}>{group.name}</Option>
-            ))}
-          </Select>
-          
-          {selectedImageIds.length > 0 && (
+    <div className="my-photos-container">
+      <Card
+        title={<Title level={2} style={{ margin: 0 }}>我的照片</Title>}
+        extra={
+          <Space>
             <Button 
               type="primary" 
-              danger 
-              icon={<DeleteOutlined />}
-              onClick={handleDeleteSelected}
-              loading={deleteStatus === 'loading'}
+              icon={<PlusOutlined />} 
+              onClick={handleOpenUploadModal}
             >
-              删除所选 ({selectedImageIds.length})
+              上传照片
             </Button>
-          )}
-          
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />}
-            onClick={handleOpenUploadModal}
-          >
-            上传照片
-          </Button>
-        </Space>
-      </div>
+            <Button 
+              icon={<ReloadOutlined />} 
+              onClick={handleRefresh}
+              loading={imagesStatus === 'loading'}
+            >
+              刷新
+            </Button>
+          </Space>
+        }
+        bordered={false}
+      >
+        {!isAuthenticated ? (
+          <Alert
+            message="需要登录"
+            description="请登录以查看您的照片"
+            type="info"
+            showIcon
+          />
+        ) : myImages.length === 0 ? (
+          <Alert
+            message="没有照片"
+            description="您还没有上传任何照片，点击上方的上传照片按钮开始上传"
+            type="info"
+            showIcon
+          />
+        ) : (
+          // 传递key属性，确保在refreshKey变化时组件会重新挂载
+          <ImageGrid key={refreshKey} selectionMode={true} filter="mine" />
+        )}
+      </Card>
 
-      {/* 渲染 ImageGrid 组件，传递我们已经过滤的图片数据 */}
-  <div style={{ marginBottom: 20 }}>
-    {images.length > 0 ? (
-      <ImageGrid selectionMode={true} filter="mine" />
-    ) : (
-      <div style={{ textAlign: 'center', padding: '40px', background: '#f9f9f9', borderRadius: '8px' }}>
-        <Typography.Text type="secondary" style={{ fontSize: '16px' }}>您还没有上传任何照片</Typography.Text>
-        <div style={{ marginTop: '16px' }}>
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenUploadModal}>
-            立即上传
-          </Button>
-        </div>
-      </div>
-    )}
-  </div>
-      
       <Modal
-        title="上传照片"
-        open={showUploadModal}
+        title="上传新照片"
+        open={isUploadModalVisible}
         onCancel={handleCloseUploadModal}
         footer={null}
-        width={600}
+        destroyOnClose={true}
       >
-        <ImageUploadForm onSuccess={handleCloseUploadModal} />
+        <UploadForm onSuccess={handleCloseUploadModal} />
       </Modal>
     </div>
   );

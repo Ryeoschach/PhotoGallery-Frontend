@@ -126,6 +126,29 @@ export const logoutUser = createAsyncThunk(
   }
 );
 
+// 添加检查认证状态的异步action
+export const checkAuthStatus = createAsyncThunk(
+  'auth/checkStatus',
+  async (_, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        return rejectWithValue('No token found');
+      }
+
+      // apiClient 拦截器会自动添加 Authorization 头
+      const response = await apiClient.get('/me/');
+      
+      console.log('User session restored:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Failed to restore session:', error);
+      localStorage.removeItem('token'); // 移除无效的token
+      return rejectWithValue(error.message || 'Failed to restore session');
+    }
+  }
+);
+
 // 检查是否有有效的令牌
 const checkInitialAuth = () => {
   return !!localStorage.getItem('token');
@@ -212,6 +235,22 @@ const authSlice = createSlice({
       .addCase(logoutUser.fulfilled, (state) => {
         state.isAuthenticated = false;
         state.user = null;
+      })
+      
+      // 处理检查认证状态
+      .addCase(checkAuthStatus.pending, (state) => {
+        state.status = 'loading';
+      })
+      .addCase(checkAuthStatus.fulfilled, (state, action) => {
+        state.status = 'idle';
+        state.isAuthenticated = true;
+        state.user = action.payload;
+      })
+      .addCase(checkAuthStatus.rejected, (state) => {
+        state.status = 'idle';
+        state.isAuthenticated = false;
+        state.user = null;
+        localStorage.removeItem('token');
       });
   }
 });
