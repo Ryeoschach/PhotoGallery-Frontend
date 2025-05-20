@@ -107,14 +107,14 @@ const initialState: ImagesState = {
   selectedGroupId: null,
 };
 
-// 修改 fetchImages 函数
+// 修改 fetchImages 函数 - 修复参数顺序问题
 export const fetchImages = createAsyncThunk(
   'images/fetchImages',
   async (params?: { mine?: boolean }) => {
     // 构建请求URL，如果指定了 mine 参数则请求用户自己的照片
     const url = '/images/' + (params?.mine ? '?mine=true' : '');
     
-    console.log('Fetching images with URL:', url);
+    console.log('Fetching images with URL:', url, '当前时间:', new Date().toISOString());
     const response = await apiClient.get(url);
     console.log('API response for images:', response);
     
@@ -196,43 +196,125 @@ export const fetchImageDetail = createAsyncThunk(
   }
 );
 
-// 上传新照片 - 这个函数需要特殊处理，因为它使用FormData
-export const uploadImage = createAsyncThunk(
+// 上传新照片 - 使用更明确的文件上传逻辑
+export const uploadImage = createAsyncThunk<Image, ImageUploadRequest>(
   'images/uploadImage',
   async (imageData: ImageUploadRequest) => {
-    const formData = new FormData();
-    formData.append('name', imageData.name);
-    formData.append('description', imageData.description || '');
-    formData.append('image', imageData.image);
-    
-    if (imageData.groups && imageData.groups.length > 0) {
-      imageData.groups.forEach(groupId => {
-        formData.append('groups', groupId.toString());
-      });
-    }
-
-    const response = await apiClient.post<Image>('/images/', {
-      data: formData,
-      requestType: 'form'
-    });
-    
-    console.log('Upload image response:', response);
-    
-    // 检查响应的结构，提取正确的数据部分
-    if (response && typeof response === 'object') {
-      // 如果 response 是对象且有 data 属性
-      if ('data' in response) return response.data;
+    try {
+      console.log('开始上传图片，准备FormData'); 
       
-      // 如果 response 本身就是包含需要的字段的对象，直接返回
-      if ('id' in response && 'name' in response && 'image' in response) return response;
+      // 检查文件对象是否存在
+      if (!imageData.image) {
+        throw new Error('没有找到有效的文件对象');
+      }
+      
+      console.log('文件对象信息:', {
+        name: imageData.image.name,
+        type: imageData.image.type,
+        size: imageData.image.size,
+        lastModified: new Date(imageData.image.lastModified).toISOString()
+      });
+      
+      const formData = new FormData();
+      
+      // 直接添加文件对象，不指定第三个参数
+      formData.append('image', imageData.image);
+      formData.append('name', imageData.name);
+      formData.append('description', imageData.description || '');
+      
+      if (imageData.groups && imageData.groups.length > 0) {
+        imageData.groups.forEach(groupId => {
+          formData.append('groups', groupId.toString());
+        });
+      }
+
+      // 打印FormData内容，验证数据正确性
+      console.log('FormData内容:');
+      for (const [key, value] of formData.entries()) {
+        console.log(`${key}: ${value instanceof File ? `文件 - ${value.name} (${value.type}, ${value.size} bytes)` : value}`);
+      }
+
+      // 直接使用fetch API发送请求
+      const token = localStorage.getItem('token');
+      const apiBaseUrl = '/api'; // 与apiClient.prefix一致
+      
+      console.log(`发送上传请求到 ${apiBaseUrl}/images/`);
+      const response = await fetch(`${apiBaseUrl}/images/`, {
+        method: 'POST',
+        headers: {
+          // 重要：不要自己设置Content-Type，让浏览器设置正确的multipart/form-data和boundary
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: formData
+      });
+      
+      console.log(`上传响应状态: ${response.status} ${response.statusText}`);
+      
+      // 打印整个响应头信息，帮助调试
+      console.log('响应头信息:');
+      response.headers.forEach((value, key) => {
+        console.log(`${key}: ${value}`);
+      });
+      
+      if (!response.ok) {
+        let errorMessage = `上传失败: ${response.status} ${response.statusText}`;
+        try {
+          // 尝试解析JSON错误消息
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const errorJson = await response.json();
+            console.error('上传失败 (JSON错误):', errorJson);
+            
+            // 处理不同的错误响应格式
+            if (errorJson.detail) {
+              errorMessage += ` - ${errorJson.detail}`;
+            } else if (errorJson.message) {
+              errorMessage += ` - ${errorJson.message}`;
+            } else if (errorJson.error) {
+              errorMessage += ` - ${errorJson.error}`;
+            } else {
+              // 如果没有特定错误字段，转换整个对象
+              errorMessage += ` - ${JSON.stringify(errorJson)}`;
+            }
+          } else {
+            // 非JSON错误响应
+            const errorText = await response.text();
+            console.error('上传失败 (文本错误):', errorText);
+            errorMessage += errorText ? ` - ${errorText}` : '';
+          }
+        } catch (parseError) {
+          console.error('解析错误响应时出错:', parseError);
+          const errorText = await response.text().catch(() => '');
+          errorMessage += errorText ? ` - ${errorText}` : '';
+        }
+        
+        throw new Error(errorMessage);
+      }
+      
+      try {
+        const data = await response.json();
+        console.log('上传成功，服务器返回:', data);
+        
+        // 验证返回的数据
+        if (!data || typeof data !== 'object') {
+          console.error('服务器返回了无效数据:', data);
+          throw new Error('服务器返回的数据无效');
+        }
+        
+        return data as Image;
+      } catch (error) {
+        console.error('解析响应数据时出错:', error);
+        throw new Error('解析服务器响应失败，但图片可能已成功上传');
+      }
+    } catch (error) {
+      console.error('上传过程中发生错误:', error);
+      throw error;
     }
-    
-    return response;
   }
 );
 
 // 修改 updateImage 函数
-export const updateImage = createAsyncThunk(
+export const updateImage = createAsyncThunk<Image, ImageUpdateRequest>(
   'images/updateImage',
   async (imageData: ImageUpdateRequest) => {
     const { id, ...updateData } = imageData;
@@ -250,14 +332,14 @@ export const updateImage = createAsyncThunk(
     // 检查响应的结构，提取正确的数据部分
     if (response && typeof response === 'object') {
       // 如果 response 是对象且有 data 属性
-      if ('data' in response) return response.data;
+      if ('data' in response) return response.data as Image;
       
       // 如果 response 本身就是包含需要的字段的对象，直接返回
-      if ('id' in response && 'name' in response && 'image' in response) return response;
+      if ('id' in response && 'name' in response && 'image' in response) return response as Image;
     }
     
     // 默认返回响应
-    return response;
+    return response as Image;
   }
 );
 
@@ -366,9 +448,9 @@ export const deleteGroup = createAsyncThunk(
 );
 
 // 更新照片的分组
-export const updateImageGroups = createAsyncThunk(
+export const updateImageGroups = createAsyncThunk<Image, { imageId: number, groupIds: number[] }>(
   'images/updateImageGroups',
-  async ({ imageId, groupIds }: { imageId: number, groupIds: number[] }) => {
+  async ({ imageId, groupIds }) => {
     console.log(`Updating image ${imageId} with groups:`, groupIds);
     const response = await apiClient.patch(`/images/${imageId}/`, {
       data: { groups: groupIds },
@@ -381,13 +463,13 @@ export const updateImageGroups = createAsyncThunk(
     // 检查响应的结构，提取正确的数据部分
     if (response && typeof response === 'object') {
       // 如果 response 是对象且有 data 属性
-      if ('data' in response) return response.data;
+      if ('data' in response) return response.data as Image;
       
       // 如果 response 本身就是包含需要的字段的对象，直接返回
-      if ('id' in response && 'name' in response && 'image' in response) return response;
+      if ('id' in response && 'name' in response && 'image' in response) return response as Image;
     }
     
-    return response;
+    return response as Image;
   }
 );
 
@@ -495,7 +577,11 @@ const imagesSlice = createSlice({
         // 从 action.payload 中提取图片数据并添加到列表中
         // 确保action.payload是一个有效的Image对象
         if (action.payload && typeof action.payload === 'object' && 'id' in action.payload) {
-          state.list.push(action.payload as Image);
+          // 确保不重复添加
+          if (!state.list.some(img => img.id === action.payload.id)) {
+            console.log('添加新上传的照片到列表中:', action.payload);
+            state.list.unshift(action.payload as Image); // 添加到列表开头，让新照片显示在前面
+          }
         } else {
           console.error('Upload succeeded but returned invalid image data:', action.payload);
         }

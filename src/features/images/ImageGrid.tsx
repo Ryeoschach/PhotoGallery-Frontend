@@ -99,6 +99,11 @@ const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = '
       allOwners: images.map(img => img?.owner)
     });
 
+    // 如果没有图片，直接返回空数组
+    if (!images || images.length === 0) {
+      return [];
+    }
+
     // 首页上，确保总是返回所有照片
     if (window.location.pathname === '/' || window.location.pathname === '/home') {
       return images;

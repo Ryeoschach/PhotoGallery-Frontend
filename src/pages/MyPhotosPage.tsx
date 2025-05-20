@@ -19,10 +19,9 @@ const MyPhotosPage: React.FC = () => {
   const imagesStatus = useSelector(selectImagesStatus);
   
   const [isUploadModalVisible, setIsUploadModalVisible] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0); // 用于强制刷新组件
   
   // 使用ref来跟踪是否已经发送了初始请求
-  const initialFetchDoneRef = useRef<boolean>(false);
+  const initialLoadDoneRef = useRef(false);
   
   // 如果用户未登录，重定向到登录页面
   useEffect(() => {
@@ -32,20 +31,15 @@ const MyPhotosPage: React.FC = () => {
     }
   }, [isAuthenticated, navigate]);
   
-  // 确保在组件挂载时加载照片数据
+  // 当组件挂载时获取用户照片
   useEffect(() => {
-    // 仅在以下情况加载照片：
-    // 1. 用户已登录
-    // 2. 不在加载状态
-    // 3. 尚未执行初始加载或强制刷新被触发(refreshKey变化)
-    if (isAuthenticated && imagesStatus !== 'loading' && 
-        (!initialFetchDoneRef.current || refreshKey > 0)) {
-      console.log('Loading images for authenticated user. Status:', imagesStatus, 
-                  'Initial fetch done:', initialFetchDoneRef.current);
+    // 只有当用户已认证且初次加载时才发送请求
+    if (isAuthenticated && !initialLoadDoneRef.current) {
+      console.log('初始加载用户照片'); 
       dispatch(fetchImages({ mine: true }));
-      initialFetchDoneRef.current = true;
+      initialLoadDoneRef.current = true;
     }
-  }, [isAuthenticated, dispatch, imagesStatus, refreshKey]);
+  }, [dispatch, isAuthenticated]);
 
   // 处理上传模态框
   const handleOpenUploadModal = () => {
@@ -54,21 +48,14 @@ const MyPhotosPage: React.FC = () => {
   
   const handleCloseUploadModal = () => {
     setIsUploadModalVisible(false);
-    // 关闭模态框后刷新照片列表，获取最新上传的照片
-    if (imagesStatus !== 'loading') {
-      console.log('Upload modal closed, refreshing images');
-      setRefreshKey(prevKey => prevKey + 1); // 刷新组件会触发上面的useEffect
-    }
+    // 避免重复请求，让 ImageUploadForm 组件自己处理重新加载
   };
   
-  // 刷新照片列表
+  // 处理刷新按钮
   const handleRefresh = () => {
-    if (imagesStatus !== 'loading') {
-      console.log('Manual refresh triggered');
-      setRefreshKey(prevKey => prevKey + 1); // 这会触发上面的useEffect
-    } else {
-      console.log('已经在加载中，跳过刷新请求');
-    }
+    console.log('手动刷新用户照片');
+    // 直接调用 dispatch，不使用 setRefreshKey
+    dispatch(fetchImages({ mine: true }));
   };
   
   // 重要：移除条件返回，改为条件渲染
@@ -111,8 +98,7 @@ const MyPhotosPage: React.FC = () => {
             showIcon
           />
         ) : (
-          // 传递key属性，确保在refreshKey变化时组件会重新挂载
-          <ImageGrid key={refreshKey} selectionMode={true} filter="mine" />
+          <ImageGrid selectionMode={true} filter="mine" />
         )}
       </Card>
 

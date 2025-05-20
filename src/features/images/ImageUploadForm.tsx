@@ -8,7 +8,8 @@ import {
   selectUploadStatus,
   selectUploadError,
   resetUploadStatus,
-  selectAllGroups
+  selectAllGroups,
+  fetchImages
 } from './imagesSlice';
 import type { AppDispatch } from '../../app/store';
 
@@ -29,30 +30,59 @@ const ImageUploadForm: React.FC<ImageUploadFormProps> = ({ onSuccess }) => {
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   
   // 表单提交处理
-  const onFinish = async (values: any) => {
-    if (fileList.length === 0) {
-      message.error('请选择要上传的图片');
-      return;
-    }
-    
+  const handleSubmit = async () => {
     try {
+      if (fileList.length === 0) {
+        message.error('请选择要上传的图片');
+        return;
+      }
+
+      // 确保文件对象存在且有效
+      const file = fileList[0];
+      if (!file) {
+        message.error('没有找到有效的文件对象');
+        return;
+      }
+
+      // 使用原始文件对象，更安全的获取方式
+      const fileObj = file.originFileObj || file;
+      if (!fileObj || !(fileObj instanceof File)) {
+        console.error('文件对象无效:', fileObj);
+        message.error('文件对象无效，请重新选择文件');
+        return;
+      }
+
+      console.log('上传前文件对象信息:', {
+        name: fileObj.name,
+        type: fileObj.type,
+        size: fileObj.size,
+        lastModified: new Date(fileObj.lastModified).toISOString()
+      });
+
+      const values = await form.validateFields();
       const uploadData = {
         name: values.name,
         description: values.description || '',
-        image: fileList[0].originFileObj as File,
+        image: fileObj,
         groups: values.groups || []
       };
       
+      // 上传照片
       await dispatch(uploadImage(uploadData)).unwrap();
       message.success('上传成功！');
       form.resetFields();
       setFileList([]);
       
-      if (onSuccess) {
-        onSuccess();
-      }
+      // 上传成功后，直接获取最新照片列表
+      console.log('照片上传成功，正在获取最新照片列表');
+      await dispatch(fetchImages({ mine: true }));
+      
+      // 最后再调用 onSuccess 回调关闭模态框
+      if (onSuccess) onSuccess();
     } catch (err) {
       // 错误会在状态中处理
+      console.error('上传照片时发生错误:', err);
+      message.error(err instanceof Error ? `上传失败: ${err.message}` : '上传失败，请重试');
     }
   };
   
@@ -76,7 +106,26 @@ const ImageUploadForm: React.FC<ImageUploadFormProps> = ({ onSuccess }) => {
         return Upload.LIST_IGNORE;
       }
       
-      setFileList([file]);
+      // 创建一个带有originFileObj属性的UploadFile对象
+      const uploadFile: UploadFile = {
+        uid: file.uid || `-${Date.now()}`, // 如果没有uid，生成一个临时的
+        name: file.name,
+        status: 'done',
+        size: file.size,
+        type: file.type,
+        lastModified: file.lastModified,
+        percent: 100,
+        originFileObj: file, // 确保原始文件对象被保存
+      };
+      
+      setFileList([uploadFile]);
+      console.log('文件已添加到上传列表:', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        hasOriginFileObj: !!uploadFile.originFileObj
+      });
+      
       return false; // 阻止自动上传
     },
     maxCount: 1,
@@ -94,7 +143,7 @@ const ImageUploadForm: React.FC<ImageUploadFormProps> = ({ onSuccess }) => {
     <Form
       form={form}
       layout="vertical"
-      onFinish={onFinish}
+      onFinish={handleSubmit}
     >
       <Form.Item
         name="name"
@@ -135,11 +184,25 @@ const ImageUploadForm: React.FC<ImageUploadFormProps> = ({ onSuccess }) => {
         <Upload
           {...uploadProps}
           listType="picture"
+          customRequest={({ onSuccess }) => {
+            // 自定义请求实现，用于在本地处理文件
+            if (onSuccess) {
+              // 标记此文件为准备完成状态
+              setTimeout(() => {
+                onSuccess({}, new XMLHttpRequest());
+              }, 0);
+            }
+          }}
         >
           <Button icon={<UploadOutlined />} disabled={fileList.length >= 1}>
             选择图片
           </Button>
         </Upload>
+        {fileList.length > 0 && (
+          <div style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
+            已选择文件: {fileList[0]?.name || '未知文件'}
+          </div>
+        )}
       </Form.Item>
       
       {uploadError && (
