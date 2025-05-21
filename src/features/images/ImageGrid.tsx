@@ -206,15 +206,15 @@ const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = '
               >
                 <Card.Meta
                   title={image?.name || 'Untitled'}
-                  description={
-                    <div>
-                      {image?.description && (
-                        <Typography.Paragraph ellipsis={{ rows: 2 }}>
-                          {image.description}
-                        </Typography.Paragraph>
-                      )}
-                    </div>
-                  }
+                  // description={
+                  //   <div>
+                  //     {image?.description && (
+                  //       <Typography.Paragraph ellipsis={{ rows: 2 }}>
+                  //         {image.description}
+                  //       </Typography.Paragraph>
+                  //     )}
+                  //   </div>
+                  // }
                 />
               </Card>
             </div>
