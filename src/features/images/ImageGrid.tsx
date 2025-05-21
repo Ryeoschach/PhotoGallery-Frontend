@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { List, Card, Image as AntImage, Typography, Checkbox } from 'antd';
+import { List, Card, Image as AntImage, Checkbox } from 'antd';
 import { Link } from 'react-router-dom';
 import { 
   selectFilteredImages, 

@@ -740,11 +740,24 @@ export const selectFilteredImages = createSelector(
   [(state: RootState) => state.images.list,
    (state: RootState) => state.images.selectedGroupId],
   (list, selectedGroupId) => {
-    // 根据分组 ID 过滤照片
-    if (selectedGroupId === null) {
+    // 调试日志，帮助排查问题
+    console.log('selectFilteredImages:', { 
+      totalImages: list.length, 
+      selectedGroupId, 
+      isNull: selectedGroupId === null,
+      isUndefined: selectedGroupId === undefined
+    });
+    
+    // 如果selectedGroupId为null或undefined，返回所有照片
+    if (selectedGroupId === null || selectedGroupId === undefined) {
       return list;
     }
-    return list.filter(image => image.groups.includes(selectedGroupId));
+    
+    // 根据分组ID过滤照片
+    return list.filter(image => 
+      image && image.groups && Array.isArray(image.groups) && 
+      image.groups.includes(selectedGroupId)
+    );
   }
 );
 
@@ -754,6 +767,15 @@ export const selectMyImages = createSelector(
    (state: RootState) => state.images.list, // 获取照片列表
    (state: RootState) => state.images.selectedGroupId], // 获取选中的分组ID
   (currentUser, imageList, selectedGroupId) => {
+    // 调试日志
+    console.log('selectMyImages:', { 
+      hasUser: !!currentUser, 
+      totalImages: imageList.length, 
+      selectedGroupId,
+      isNull: selectedGroupId === null,
+      isUndefined: selectedGroupId === undefined
+    });
+    
     if (!currentUser) return [];
     
     // 先按照所有者过滤
@@ -779,8 +801,11 @@ export const selectMyImages = createSelector(
     });
     
     // 然后再按照选定的分组过滤（如果有）
-    if (selectedGroupId !== null) {
-      result = result.filter(image => image.groups.includes(selectedGroupId));
+    if (selectedGroupId !== null && selectedGroupId !== undefined) {
+      result = result.filter(image => 
+        image && image.groups && Array.isArray(image.groups) && 
+        image.groups.includes(selectedGroupId)
+      );
     }
     
     return result;

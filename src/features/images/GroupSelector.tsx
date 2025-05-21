@@ -45,9 +45,10 @@ const GroupSelector: React.FC = () => {
   }, [dispatch]);
   
   // 处理分组过滤改变
-  const handleGroupChange = (value: number | null) => {
+  const handleGroupChange = (value: number | undefined) => {
     console.log('Group selected:', value);  // 调试日志
-    dispatch(setSelectedGroup(value));
+    // 将undefined转换为null，确保在取消选择时正确设置为null
+    dispatch(setSelectedGroup(value === undefined ? null : value));
   };
   
   // 打开创建分组的弹窗
@@ -121,13 +122,13 @@ const GroupSelector: React.FC = () => {
   };
   
   // 删除分组
-  const handleDeleteGroup = async (groupId: number) => {
+  const handleDeleteGroup = async (id: number) => {
     try {
-      await dispatch(deleteGroup(groupId)).unwrap();
-      message.success('分组删除成功');
+      await dispatch(deleteGroup(id)).unwrap();
+      message.success('分组已删除');
       
-      // 如果删除的是当前选中的分组，清除选择
-      if (selectedGroupId === groupId) {
+      // 如果当前选中的分组被删除，则将选择器重置为null
+      if (selectedGroupId === id) {
         dispatch(setSelectedGroup(null));
       }
     } catch (error) {
@@ -136,27 +137,14 @@ const GroupSelector: React.FC = () => {
     }
   };
   
-  // 自定义弹出菜单，增加创建按钮 (使用 popupRender 替代 dropdownRender)
-  const popupRender = (menu: React.ReactElement) => (
-    <>
-      {menu}
-      <Divider style={{ margin: '8px 0' }} />
-      <Space style={{ padding: '0 8px 4px' }}>
-        <Button type="text" icon={<PlusOutlined />} onClick={showCreateGroupModal}>
-          创建新分组
-        </Button>
-      </Space>
-    </>
-  );
-  
-  // 自定义选项渲染，添加编辑和删除按钮
+  // 自定义选项渲染
   const customOptionRender = (group: Group) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <span>{group.name}</span>
       <Space>
-        <Button 
-          type="text" 
-          icon={<EditOutlined />} 
+        <Button
+          type="text"
+          icon={<EditOutlined />}
           size="small"
           onClick={(e) => {
             e.stopPropagation();
@@ -164,25 +152,37 @@ const GroupSelector: React.FC = () => {
           }}
         />
         <Popconfirm
-          title="删除分组"
-          description="确定要删除这个分组吗？这不会删除分组中的照片。"
+          title="确认删除该分组吗？"
           onConfirm={(e) => {
             e?.stopPropagation();
             handleDeleteGroup(group.id);
           }}
-          okText="确定"
-          cancelText="取消"
           onCancel={(e) => e?.stopPropagation()}
+          okText="确认"
+          cancelText="取消"
         >
-          <Button 
-            type="text" 
-            icon={<DeleteOutlined />} 
+          <Button
+            type="text"
+            icon={<DeleteOutlined />}
             size="small"
             danger
             onClick={(e) => e.stopPropagation()}
           />
         </Popconfirm>
       </Space>
+    </div>
+  );
+  
+  // 自定义下拉菜单渲染
+  const popupRender = (menu: React.ReactElement) => (
+    <div>
+      {menu}
+      <Divider style={{ margin: '4px 0' }} />
+      <div style={{ padding: '8px', textAlign: 'center' }}>
+        <Button type="text" icon={<PlusOutlined />} onClick={showCreateGroupModal}>
+          创建新分组
+        </Button>
+      </div>
     </div>
   );
   
@@ -195,7 +195,7 @@ const GroupSelector: React.FC = () => {
         onChange={handleGroupChange}
         allowClear
         loading={status === 'loading'}
-        popupRender={popupRender}  // 使用 popupRender 替代 dropdownRender
+        popupRender={popupRender}
         optionLabelProp="label"
       >
         {groups.map(group => (
