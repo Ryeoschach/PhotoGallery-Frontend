@@ -1,15 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Button, Card, Typography, Modal, Space, Alert } from 'antd';
-import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Button, Modal, Space, Alert } from 'antd';
+import { PlusOutlined, ReloadOutlined, PictureOutlined } from '@ant-design/icons';
 import ImageGrid from '../features/images/ImageGrid';
 import UploadForm from '../features/images/ImageUploadForm';
 import { fetchImages, selectMyImages, selectImagesStatus } from '../features/images/imagesSlice';
 import { selectIsAuthenticated } from '../features/auth/authSlice';
 import type { AppDispatch } from '../app/store';
 import { useNavigate } from 'react-router-dom';
-
-const { Title } = Typography;
 
 const MyPhotosPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -58,20 +56,22 @@ const MyPhotosPage: React.FC = () => {
     dispatch(fetchImages({ mine: true }));
   };
   
-  // 重要：移除条件返回，改为条件渲染
   return (
-    <div className="my-photos-container">
-      <Card
-        title={<Title level={2} style={{ margin: 0 }}>我的照片</Title>}
-        extra={
+    <div className="fade-in">
+      <div className="page-header">
+        <h1 className="page-title">我的照片</h1>
+      </div>
+      
+      <div className="modern-card">
+        <div className="modern-card-header">
+          <div></div>
           <Space>
-            <Button 
-              type="primary" 
-              icon={<PlusOutlined />} 
+            <button 
+              className="modern-button modern-button-primary" 
               onClick={handleOpenUploadModal}
             >
-              上传照片
-            </Button>
+              <PlusOutlined /> 上传照片
+            </button>
             <Button 
               icon={<ReloadOutlined />} 
               onClick={handleRefresh}
@@ -80,27 +80,30 @@ const MyPhotosPage: React.FC = () => {
               刷新
             </Button>
           </Space>
-        }
-        bordered={false}
-      >
-        {!isAuthenticated ? (
-          <Alert
-            message="需要登录"
-            description="请登录以查看您的照片"
-            type="info"
-            showIcon
-          />
-        ) : myImages.length === 0 ? (
-          <Alert
-            message="没有照片"
-            description="您还没有上传任何照片，点击上方的上传照片按钮开始上传"
-            type="info"
-            showIcon
-          />
-        ) : (
-          <ImageGrid selectionMode={true} filter="mine" />
-        )}
-      </Card>
+        </div>
+        
+        <div className="modern-card-body">
+          {!isAuthenticated ? (
+            <Alert
+              message="需要登录"
+              description="请登录以查看您的照片"
+              type="info"
+              showIcon
+            />
+          ) : myImages.length === 0 ? (
+            <div className="empty-state">
+              <span className="empty-icon"><PictureOutlined /></span>
+              <h3 className="empty-title">您还没有上传照片</h3>
+              <p className="empty-description">点击上方的"上传照片"按钮开始上传您的照片</p>
+              <Button type="primary" onClick={handleOpenUploadModal} icon={<PlusOutlined />}>
+                上传第一张照片
+              </Button>
+            </div>
+          ) : (
+            <ImageGrid selectionMode={true} filter="mine" />
+          )}
+        </div>
+      </div>
 
       <Modal
         title="上传新照片"
@@ -108,6 +111,8 @@ const MyPhotosPage: React.FC = () => {
         onCancel={handleCloseUploadModal}
         footer={null}
         destroyOnClose={true}
+        width={700}
+        centered
       >
         <UploadForm onSuccess={handleCloseUploadModal} />
       </Modal>

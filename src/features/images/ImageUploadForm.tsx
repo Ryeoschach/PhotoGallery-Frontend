@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Form, Input, Button, Upload, message, Select } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
+import { PictureOutlined } from '@ant-design/icons';
 import type { UploadFile, UploadProps } from 'antd/es/upload/interface';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
@@ -144,20 +144,25 @@ const ImageUploadForm: React.FC<ImageUploadFormProps> = ({ onSuccess }) => {
       form={form}
       layout="vertical"
       onFinish={handleSubmit}
+      className="modern-form"
     >
       <Form.Item
         name="name"
         label="照片名称"
         rules={[{ required: true, message: '请输入照片名称' }]}
       >
-        <Input placeholder="请输入照片名称" />
+        <Input placeholder="请输入照片名称" className="modern-input" />
       </Form.Item>
       
       <Form.Item
         name="description"
         label="照片描述"
       >
-        <TextArea placeholder="请输入照片描述（可选）" rows={3} />
+        <TextArea 
+          placeholder="请输入照片描述（可选）" 
+          rows={3} 
+          className="modern-textarea"
+        />
       </Form.Item>
       
       <Form.Item
@@ -169,6 +174,7 @@ const ImageUploadForm: React.FC<ImageUploadFormProps> = ({ onSuccess }) => {
           placeholder="选择分组（可选）"
           allowClear
           style={{ width: '100%' }}
+          className="modern-select"
         >
           {groups.map(group => (
             <Option key={group.id} value={group.id}>{group.name}</Option>
@@ -181,44 +187,70 @@ const ImageUploadForm: React.FC<ImageUploadFormProps> = ({ onSuccess }) => {
         required
         tooltip="支持 jpg, png, gif 等常见图片格式，大小不超过 10MB"
       >
-        <Upload
-          {...uploadProps}
-          listType="picture"
-          customRequest={({ onSuccess }) => {
-            // 自定义请求实现，用于在本地处理文件
-            if (onSuccess) {
-              // 标记此文件为准备完成状态
-              setTimeout(() => {
-                onSuccess({}, new XMLHttpRequest());
-              }, 0);
-            }
-          }}
-        >
-          <Button icon={<UploadOutlined />} disabled={fileList.length >= 1}>
-            选择图片
-          </Button>
-        </Upload>
-        {fileList.length > 0 && (
-          <div style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
-            已选择文件: {fileList[0]?.name || '未知文件'}
-          </div>
-        )}
+        <div className="upload-container">
+          {fileList.length === 0 ? (
+            <Upload
+              {...uploadProps}
+              listType="picture-card"
+              className="modern-upload"
+              customRequest={({ onSuccess }) => {
+                if (onSuccess) {
+                  setTimeout(() => {
+                    onSuccess({}, new XMLHttpRequest());
+                  }, 0);
+                }
+              }}
+            >
+              <div className="upload-placeholder">
+                <PictureOutlined style={{ fontSize: 32, color: 'var(--primary-color)' }} />
+                <p>点击上传图片</p>
+              </div>
+            </Upload>
+          ) : (
+            <div className="selected-file-preview">
+              <div className="preview-image">
+                {fileList[0].type?.startsWith('image/') && fileList[0].originFileObj && (
+                  <img 
+                    src={URL.createObjectURL(fileList[0].originFileObj)} 
+                    alt="Preview" 
+                    style={{ maxHeight: '200px', maxWidth: '100%', objectFit: 'contain' }} 
+                  />
+                )}
+              </div>
+              <div className="file-info">
+                <div className="file-name">{fileList[0].name}</div>
+                <div className="file-size">{(fileList[0].size! / 1024).toFixed(1)} KB</div>
+                <Button 
+                  type="text" 
+                  danger 
+                  onClick={() => setFileList([])}
+                  style={{ padding: 0 }}
+                >
+                  移除
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </Form.Item>
       
       {uploadError && (
-        <div style={{ color: 'red', marginBottom: 16 }}>
+        <div className="error-message">
           上传失败: {uploadError}
         </div>
       )}
       
       <Form.Item>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <Button onClick={handleReset}>重置</Button>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-md)' }}>
+          <Button onClick={handleReset}>
+            重置
+          </Button>
           <Button 
             type="primary" 
             htmlType="submit"
             loading={uploadStatus === 'loading'}
             disabled={fileList.length === 0}
+            className={fileList.length > 0 ? "modern-button-primary" : ""}
           >
             上传
           </Button>

@@ -71,61 +71,97 @@ const App: React.FC = () => {
   return (
     <Layout style={{ 
       width: '100%', 
-      minWidth: '320px', 
-      maxWidth: '1280px', 
       margin: '0 auto',
       padding: 0,
-      minHeight: '100vh'
+      minHeight: '100vh',
+      background: 'var(--background)'
     }}>
-      <Header className="header" style={{ 
-        position: 'sticky', 
-        top: 10, 
-        zIndex: 1, 
-        width: '100%',
-        display: 'flex',
-        justifyContent: 'space-between' 
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <div className="logo" style={{ marginRight: 20 }}>
-            <PictureOutlined /> Photo Gallery
-          </div>
-          <Menu 
-            theme="dark" 
-            mode="horizontal" 
-            defaultSelectedKeys={['home']} 
-            items={menuItems}
-            style={{ flex: 1, minWidth: 0 }}
-          />
-        </div>
-        
-        <div>
-          {isAuthenticated ? (
-            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-              <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                <Avatar size="small" icon={<UserOutlined />} style={{ marginRight: 8 }} />
-                <span style={{ color: 'white' }}>{currentUser?.username || '用户'}</span>
-              </div>
-            </Dropdown>
-          ) : (
-            <div>
-              <Button type="link" onClick={() => navigate('/login')}>
-                <LoginOutlined /> 登录
-              </Button>
-              <Button type="primary" onClick={() => navigate('/register')}>
-                注册
-              </Button>
+      <Header className="header">
+        <div style={{ 
+          maxWidth: 'var(--content-width)', 
+          margin: '0 auto', 
+          width: '100%',
+          display: 'flex',
+          justifyContent: 'space-between',
+          height: '100%'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div className="logo">
+              <PictureOutlined /> Photo Gallery
             </div>
-          )}
+            <Menu 
+              theme="light" 
+              mode="horizontal" 
+              defaultSelectedKeys={['home']} 
+              items={menuItems}
+              style={{ 
+                borderBottom: 'none',
+                background: 'transparent'
+              }}
+            />
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {isAuthenticated ? (
+              <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                  borderRadius: '40px',
+                  transition: 'all 0.3s ease'
+                }}>
+                  <Avatar 
+                    size="default" 
+                    icon={<UserOutlined />} 
+                    style={{ 
+                      marginRight: 8,
+                      backgroundColor: 'var(--primary-light)',
+                      color: 'var(--primary-color)'
+                    }} 
+                  />
+                  <span style={{ color: 'var(--text-primary)' }}>
+                    {currentUser?.username || '用户'}
+                  </span>
+                </div>
+              </Dropdown>
+            ) : (
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <Button 
+                  type="text" 
+                  onClick={() => navigate('/login')}
+                  style={{ color: 'var(--primary-color)' }}
+                >
+                  <LoginOutlined /> 登录
+                </Button>
+                <Button 
+                  type="primary" 
+                  onClick={() => navigate('/register')}
+                  style={{ 
+                    backgroundColor: 'var(--primary-color)',
+                    borderRadius: 'var(--border-radius-sm)'
+                  }}
+                >
+                  注册
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </Header>
       
       <Content className="content">
-        <div className="site-layout-content">
+        <div className="site-layout-content fade-in">
           <Outlet />
         </div>
       </Content>
       
-      <Footer className="footer">Photo Gallery ©2025 Created with Ant Design</Footer>
+      <Footer className="footer">
+        <div style={{ maxWidth: 'var(--content-width)', margin: '0 auto' }}>
+          Photo Gallery ©2025 Created with Ant Design
+        </div>
+      </Footer>
     </Layout>
   );
 }

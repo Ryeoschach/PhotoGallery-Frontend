@@ -1,14 +1,10 @@
 import React, { useEffect } from 'react';
-import { Typography, Row, Col, Space } from 'antd';
-// import { UserOutlined } from '@ant-design/icons';
-// import { Link } from 'react-router-dom';
+import { Row, Col, Space } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchImages, selectImagesStatus } from '../features/images/imagesSlice';
 import ImageGrid from '../features/images/ImageGrid';
 import GroupSelector from '../features/images/GroupSelector';
 import type { AppDispatch } from '../app/store';
-
-const { Title, Paragraph } = Typography;
 
 const HomePage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -24,26 +20,30 @@ const HomePage: React.FC = () => {
   }, [dispatch, imagesStatus]);
   
   return (
-    <div style={{ width: '100%', minWidth: '320px', maxWidth: '1280px' }}>
-      <Title level={1} style={{ textAlign: 'center' }}>
-        Welcome to Photo Gallery
-      </Title>
-      <Paragraph style={{ textAlign: 'center', fontSize: '16px' }}>
-        A React + Django application for managing users and photos
-      </Paragraph>
+    <div className="fade-in">
+      <div className="page-header">
+        <h1 className="page-title">欢迎来到照片库</h1>
+        <p className="page-subtitle">
+          一个用于管理用户和照片的React + Django应用程序
+        </p>
+      </div>
       
-      <Row gutter={[16, 24]}>
-        <Col span={24}>
-          <Space direction="vertical" style={{ width: '100%' }}>
-            <div style={{ marginBottom: 16 }}>
-              <GroupSelector />
-            </div>
-          </Space>
-        </Col>
-      </Row>
-      
-      {/* 显式传递filter="all"，确保不受其他页面影响 */}
-      <ImageGrid filter="all" />
+      <div className="modern-card">
+        <div className="modern-card-body">
+          <Row gutter={[16, 24]}>
+            <Col span={24}>
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <div style={{ marginBottom: 'var(--spacing-lg)' }}>
+                  <GroupSelector />
+                </div>
+              </Space>
+            </Col>
+          </Row>
+          
+          {/* 显式传递filter="all"，确保不受其他页面影响 */}
+          <ImageGrid filter="all" />
+        </div>
+      </div>
     </div>
   );
 };

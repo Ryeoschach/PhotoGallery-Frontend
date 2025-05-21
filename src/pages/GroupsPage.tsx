@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
-  Typography, 
   Table, 
   Space, 
   Button, 
@@ -11,7 +10,7 @@ import {
   Popconfirm,
   message
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOutlined } from '@ant-design/icons';
 import { 
   fetchGroups, 
   createGroup, 
@@ -22,8 +21,6 @@ import {
 } from '../features/images/imagesSlice';
 import type { AppDispatch } from '../app/store';
 import type { Group } from '../features/images/imagesSlice';
-
-const { Title } = Typography;
 
 const GroupsPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -128,13 +125,28 @@ const GroupsPage: React.FC = () => {
       title: '名称',
       dataIndex: 'name',
       key: 'name',
-      render: (text: string) => <span>{text}</span>,
+      render: (text: string) => (
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 'var(--spacing-sm)',
+          color: 'var(--text-primary)',
+          fontWeight: 500
+        }}>
+          <FolderOutlined style={{ color: 'var(--primary-color)' }} />
+          {text}
+        </div>
+      ),
     },
     {
       title: '描述',
       dataIndex: 'description',
       key: 'description',
-      render: (text: string | null) => <span>{text || '无描述'}</span>,
+      render: (text: string | null) => (
+        <span style={{ color: text ? 'var(--text-secondary)' : 'var(--text-light)' }}>
+          {text || '无描述'}
+        </span>
+      ),
     },
     {
       title: '操作',
@@ -145,6 +157,7 @@ const GroupsPage: React.FC = () => {
             type="text" 
             icon={<EditOutlined />}
             onClick={() => showEditGroupModal(record)}
+            style={{ color: 'var(--primary-color)' }}
           >
             编辑
           </Button>
@@ -169,30 +182,45 @@ const GroupsPage: React.FC = () => {
   ];
 
   return (
-    <div>
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: 20 
-      }}>
-        <Title level={2}>分组管理</Title>
-        <Button 
-          type="primary" 
-          icon={<PlusOutlined />}
-          onClick={showCreateGroupModal}
-        >
-          创建分组
-        </Button>
+    <div className="fade-in">
+      <div className="page-header">
+        <h1 className="page-title">分组管理</h1>
+        <p className="page-subtitle">创建和管理照片分组，以便更好地组织您的照片集</p>
       </div>
       
-      <Table 
-        columns={columns} 
-        dataSource={groups.map(group => ({...group, key: group.id}))} 
-        loading={status === 'loading'} 
-        pagination={false}
-        rowKey="id"
-      />
+      <div className="modern-card">
+        <div className="modern-card-header">
+          <div></div>
+          <button 
+            className="modern-button modern-button-primary" 
+            onClick={showCreateGroupModal}
+          >
+            <PlusOutlined /> 创建分组
+          </button>
+        </div>
+        
+        <div className="modern-card-body">
+          {groups.length === 0 ? (
+            <div className="empty-state">
+              <span className="empty-icon"><FolderOutlined /></span>
+              <h3 className="empty-title">暂无分组</h3>
+              <p className="empty-description">创建分组可以更好地组织您的照片</p>
+              <Button type="primary" onClick={showCreateGroupModal} icon={<PlusOutlined />}>
+                创建第一个分组
+              </Button>
+            </div>
+          ) : (
+            <Table 
+              columns={columns} 
+              dataSource={groups.map(group => ({...group, key: group.id}))} 
+              loading={status === 'loading'} 
+              pagination={false}
+              rowKey="id"
+              className="modern-table"
+            />
+          )}
+        </div>
+      </div>
       
       {/* 创建分组的弹窗 */}
       <Modal
@@ -202,6 +230,7 @@ const GroupsPage: React.FC = () => {
         onCancel={handleCreateCancel}
         okText="创建"
         cancelText="取消"
+        centered
       >
         <Form
           form={createForm}
@@ -236,6 +265,7 @@ const GroupsPage: React.FC = () => {
         onCancel={handleEditCancel}
         okText="保存"
         cancelText="取消"
+        centered
       >
         <Form
           form={editForm}
