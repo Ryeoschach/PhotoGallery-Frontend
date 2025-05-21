@@ -90,9 +90,26 @@
   border: none !important;
 }
 
-/* 禁用 Ant Design 的图片预览遮罩 */
+/* 修改 Ant Design 的图片预览遮罩样式，而不是禁用它 */
 .ant-image-mask {
-  display: none !important;
+  background-color: rgba(0, 0, 0, 0.5) !important; /* 半透明黑色背景 */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.ant-image:hover .ant-image-mask {
+  opacity: 1;
+}
+
+/* 改进预览按钮样式 */
+.ant-image-mask-info {
+  color: white !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
 }
 
 /* 基本图片悬停效果 */
@@ -112,4 +129,116 @@
 
 .simple-hover-container:hover .simple-hover-image {
   transform: scale(1.2);
+}
+
+/* 现代化图片卡片样式 */
+.modern-card {
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.modern-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+}
+
+.card-image {
+  border-radius: 8px 8px 0 0;
+  transition: transform 0.5s ease;
+}
+
+.modern-card:hover .card-image {
+  transform: scale(1.05);
+}
+
+/* 减少名字的上下间距 */
+.card-meta {
+  padding: 8px 0;
+}
+
+/* 标题样式 - 减小文字大小，改变颜色 */
+.card-title {
+  font-size: 14px;
+  color: #333;
+  margin: 0;
+  padding: 4px 0;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 描述文字样式 - 添加浏览器前缀以提高兼容性 */
+.card-description {
+  color: #888;
+  font-size: 12px;
+  margin: 0;
+  padding: 0;
+  
+  /* WebKit浏览器 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  
+  /* Mozilla浏览器 */
+  display: -moz-box;
+  -moz-line-clamp: 2;
+  -moz-box-orient: vertical;
+  
+  /* Opera浏览器 */
+  display: -o-box;
+  -o-line-clamp: 2;
+  -o-box-orient: vertical;
+  
+  /* 标准语法 */
+  display: box;
+  line-clamp: 2;
+  box-orient: vertical;
+  
+  /* 通用备份属性 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 2.8em; /* 约等于2行文本的高度 */
+  line-height: 1.4;
+}
+
+/* 添加一些额外的空间优化 */
+.ant-list-item {
+  margin-bottom: 24px !important;
+}
+
+/* 选择框样式优化 */
+.ant-checkbox-wrapper {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  background-color: rgba(255, 255, 255, 0.7);
+  padding: 4px;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+.ant-checkbox-wrapper:hover {
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+/* 卡片加载时优雅的淡入效果 */
+.ant-list-item {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
