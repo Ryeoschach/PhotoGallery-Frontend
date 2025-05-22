@@ -1,41 +1,11 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
+import request from '../../services/request';
 import type { RootState } from '../../app/store';
 import type { User, AuthResponse, LoginRequest, RegisterRequest, UserUpdateRequest } from './types';
 
-// 定义API基础URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-console.log('Using API base URL:', API_BASE_URL);
-
-// 创建API客户端
-export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// 拦截器添加认证令牌
-apiClient.interceptors.request.use(
-  (config) => {
-    // 每次请求前从存储中获取最新的令牌
-    const token = localStorage.getItem('token');
-    
-    console.log(`Request to: ${config.url}, Auth token present: ${!!token}`);
-    
-    if (token && config.headers) {
-      // 直接设置 Authorization 头部
-      config.headers.Authorization = `Bearer ${token}`;
-    } else if (config.url !== '/token/') { // 只对非登录请求发出警告
-      console.warn('No authentication token found for request:', config.url);
-    }
-    return config;
-  },
-  (error) => {
-    console.error('Request interceptor error:', error);
-    return Promise.reject(error);
-  }
-);
+// 定义使用 request.ts 服务发送 API 请求
+console.log('使用 request.ts 服务发送 API 请求');
+// 拦截器已在 request.ts 中配置
 
 // 注册用户
 export const registerUser = createAsyncThunk<
@@ -44,8 +14,8 @@ export const registerUser = createAsyncThunk<
   { rejectValue: string }
 >('auth/register', async (userData, { rejectWithValue }) => {
   try {
-    const response = await apiClient.post('/register/', userData);
-    return response.data;
+    const response = await request.post('/register/', userData);
+    return response;
   } catch (err: any) {
     return rejectWithValue(
       err.response?.data?.detail || 
@@ -62,8 +32,8 @@ export const loginUser = createAsyncThunk<
 >('auth/login', async (credentials, { rejectWithValue, dispatch }) => {
   try {
     console.log('Attempting login with:', JSON.stringify(credentials));
-    const response = await apiClient.post('/token/', credentials);
-    const { access, refresh } = response.data;
+    const response = await request.post('/token/', credentials);
+    const { access, refresh } = response;
     
     localStorage.setItem('token', access);
     localStorage.setItem('refreshToken', refresh);
@@ -71,7 +41,7 @@ export const loginUser = createAsyncThunk<
     // 登录后自动获取用户信息
     dispatch(fetchUserProfile());
     
-    return response.data;
+    return response;
   } catch (err: any) {
     return rejectWithValue(
       err.response?.data?.detail || 
@@ -87,8 +57,8 @@ export const fetchUserProfile = createAsyncThunk<
   { rejectValue: string }
 >('auth/fetchProfile', async (_, { rejectWithValue }) => {
   try {
-    const response = await apiClient.get('/me/');
-    return response.data;
+    const response = await request.get('/me/');
+    return response;
   } catch (err: any) {
     return rejectWithValue(
       err.response?.data?.detail || 
@@ -104,9 +74,9 @@ export const updateUserProfile = createAsyncThunk<
   { rejectValue: string }
 >('auth/updateProfile', async (userData, { rejectWithValue }) => {
   try {
-    // 使用 apiClient 发送 PATCH 请求到 /me/ 端点
-    const response = await apiClient.patch('/me/', userData);
-    return response.data;
+    // 使用 request 发送 PATCH 请求到 /me/ 端点
+    const response = await request.patch('/me/', userData);
+    return response;
   } catch (err: any) {
     return rejectWithValue(
       err.response?.data?.detail || 
@@ -136,11 +106,11 @@ export const checkAuthStatus = createAsyncThunk(
         return rejectWithValue('No token found');
       }
 
-      // apiClient 拦截器会自动添加 Authorization 头
-      const response = await apiClient.get('/me/');
+      // request 拦截器会自动添加 Authorization 头
+      const response = await request.get('/me/');
       
-      console.log('User session restored:', response.data);
-      return response.data;
+      console.log('User session restored:', response);
+      return response;
     } catch (error: any) {
       console.error('Failed to restore session:', error);
       localStorage.removeItem('token'); // 移除无效的token
