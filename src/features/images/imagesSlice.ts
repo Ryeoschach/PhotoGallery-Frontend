@@ -491,27 +491,30 @@ export const deleteGroup = createAsyncThunk(
 // 更新照片的分组
 export const updateImageGroups = createAsyncThunk<Image, { imageId: number, groupIds: number[] }>(
   'images/updateImageGroups',
-  async ({ imageId, groupIds }) => {
-    console.log(`Updating image ${imageId} with groups:`, groupIds);
-    // 修复：使用正确的参数格式 (url, data, options)
-    const response = await apiClient.patch(`/images/${imageId}/`, {
-      groups: groupIds,
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    console.log('Update groups response:', response); // 调试日志
-    
-    // 检查响应的结构，提取正确的数据部分
-    if (response && typeof response === 'object') {
-      // 如果 response 是对象且有 data 属性
-      if ('data' in response) return response.data as Image;
-      
-      // 如果 response 本身就是包含需要的字段的对象，直接返回
-      if ('id' in response && 'name' in response && 'image' in response) return response as Image;
+  async ({ imageId, groupIds }, { rejectWithValue }) => {
+    try {
+      console.log(`Updating image ${imageId} with groups:`, groupIds);
+      // 正确的 apiClient.patch 调用，数据在 options.data 中
+      const response = await apiClient.patch(`/images/${imageId}/`, {
+        data: { groups: groupIds }, // 数据应该在 'data' 字段中
+        headers: { // headers 是 options 的一部分
+          'Content-Type': 'application/json'
+        }
+      });
+      // 假设 apiClient.patch 返回的是包含 'data' 属性的 Axios-like 响应
+      // 或者如果它直接返回数据，则不需要 .data
+      // 根据 extractData 的实现，如果响应有 data 属性，它会返回 response.data
+      // apiClient (extendRequest) 本身在成功时可能直接返回解析后的数据，或者一个包含data的完整响应对象
+      // 我们需要确保这里正确处理了响应
+      // 如果 apiClient.patch 直接返回业务数据 (Image)，则不需要 extractData
+      // 如果它返回 { data: Image, ... }，则 extractData 会处理
+      // 查阅 apiClient (umi-request) 的文档，它通常直接返回解析后的 JSON 数据
+      return response as Image; // 假设请求成功直接返回更新后的 Image 对象
+    } catch (error: any) {
+      console.error('Error updating image groups:', error.response?.data || error.message);
+      // 使用 rejectWithValue 来传递错误信息，以便在 reducer 中处理
+      return rejectWithValue(error.response?.data || error.message || 'Failed to update image groups');
     }
-    
-    return response as Image;
   }
 );
 
@@ -812,6 +815,11 @@ const imagesSlice = createSlice({
         } else {
           console.error('Update image groups succeeded but returned invalid data:', action.payload);
         }
+      })
+      .addCase(updateImageGroups.rejected, (state, action) => {
+        state.status = 'failed';
+        state.error = action.payload as string || 'Failed to update image groups';
+        console.error("updateImageGroups rejected:", action.payload);
       });
   },
 });
