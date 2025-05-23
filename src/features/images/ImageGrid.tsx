@@ -14,7 +14,7 @@ import { selectCurrentUser } from '../auth/authSlice';
 import type { AppDispatch } from '../../app/store';
 import ImageCard from '../../components/ImageCard';
 import EmptyState from '../../components/EmptyState';
-import './ImageGrid.css'; // 保留原CSS文件导入
+import '../../components/ImageCard.css'; // 确保 ImageCard 的新 CSS 被引入
 import { useNavigate } from 'react-router-dom'; // 导入 useNavigate
 
 interface ImageGridProps {
@@ -151,40 +151,43 @@ const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = '
   }
 
   return (
-    <List
-      grid={{
-        gutter: 16,
-        xs: 1,
-        sm: 2,
-        md: 3,
-        lg: 4,
-        xl: 4,
-        xxl: 6,
-      }}
-      dataSource={filteredImages}
-      renderItem={(image) => {
-        if (!image) return null;
-        
-        const isSelected = selectedImageIds.includes(image.id);
-        
-        return (
-          <List.Item>
-            <ImageCard
-              id={image.id}
-              name={image.name || 'Untitled'}
-              description={image.description}
-              imageUrl={image.image}
-              thumbnailUrl={image.thumbnail || image.image}
-              selected={isSelected}
-              onSelect={selectionMode ? handleImageSelect : undefined}
-              clickable={true}
-              showActions={true} // Keep actions bar visible (e.g., for "View")
-              onEdit={currentPath === '/my-photos' ? handleEdit : undefined} // Conditionally pass onEdit
-            />
-          </List.Item>
-        );
-      }}
-    />
+    <div className="image-grid-container"> {/* 添加一个容器 div 以便更好地控制样式 */}
+      <List
+        grid={{
+          gutter: 24, // 增加卡片间的间距
+          xs: 1, // 在超小屏幕上每行1个
+          sm: 2, // 在小屏幕上每行2个
+          md: 3, // 在中等屏幕上每行3个
+          lg: 4, // 在大屏幕上每行4个
+          xl: 5, // 在超大屏幕上每行5个
+          xxl: 6, // 在特大屏幕上每行6个
+        }}
+        dataSource={filteredImages}
+        renderItem={(image) => {
+          if (!image) return null;
+          
+          const isSelected = selectedImageIds.includes(image.id);
+          
+          return (
+            <List.Item key={image.id}> {/* 确保 List.Item 有 key */}
+              <ImageCard
+                id={image.id}
+                name={image.name || 'Untitled'}
+                description={image.description}
+                imageUrl={image.image}
+                thumbnailUrl={image.thumbnail || image.image}
+                selected={isSelected}
+                onSelect={selectionMode ? handleImageSelect : undefined}
+                showActions={true}
+                onEdit={currentPath === '/my-photos' ? handleEdit : undefined}
+                ownerUsername={typeof image.owner === 'string' ? image.owner : (image.owner ? `User ID: ${image.owner}` : undefined)} // 使用 image.owner
+                uploadDate={image.uploaded_at} // 传递上传日期
+              />
+            </List.Item>
+          );
+        }}
+      />
+    </div>
   );
 };
 

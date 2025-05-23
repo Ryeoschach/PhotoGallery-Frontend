@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Image as AntImage, Card, Typography } from 'antd';
+import { Image as AntImage, Card, Tooltip } from 'antd';
 import { EyeOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
+import './ImageCard.css'; // 引入自定义样式
 
 const { Meta } = Card;
-const { Paragraph } = Typography;
+// const { Paragraph } = Typography;
 
 interface ImageProps {
   id: number;
@@ -17,17 +18,18 @@ interface ImageProps {
   onDelete?: (id: number) => void;
   onEdit?: (id: number) => void;
   showActions?: boolean;
-  clickable?: boolean;
+  ownerUsername?: string; // 添加所有者用户名属性
+  uploadDate?: string; // 添加上传日期属性
 }
 
 /**
- * 通用图片卡片组件
- * 显示单张图片的卡片，支持选择、查看、编辑和删除操作
+ * 现代化图片卡片组件
+ * 显示单张图片的卡片，具有更现代的外观和交互效果
  */
 const ImageCard: React.FC<ImageProps> = ({
   id,
   name,
-  description,
+  // description,
   imageUrl,
   thumbnailUrl,
   selected = false,
@@ -35,77 +37,77 @@ const ImageCard: React.FC<ImageProps> = ({
   onDelete,
   onEdit,
   showActions = true,
-  clickable = true
+  ownerUsername, // 接收所有者用户名
+  uploadDate, // 接收上传日期
 }) => {
   const [loading, setLoading] = useState(true);
 
-  // 图片加载完成时的处理函数
   const handleImageLoaded = () => {
     setLoading(false);
   };
 
-  // 卡片操作按钮
-  const actions = showActions ? [
-    <Link to={`/images/${id}`} key="view">
-      <EyeOutlined /> 查看
-    </Link>
-  ] : [];
-
-  // 如果提供了编辑函数，添加编辑按钮
-  if (showActions && onEdit) {
-    actions.push(
-      <span key="edit" onClick={() => onEdit(id)}>
-        <EditOutlined /> 编辑
-      </span>
-    );
-  }
-
-  // 如果提供了删除函数，添加删除按钮
-  if (showActions && onDelete) {
-    actions.push(
-      <span key="delete" onClick={() => onDelete(id)}>
-        <DeleteOutlined /> 删除
-      </span>
-    );
-  }
-
-  // 卡片内容
-  const cardContent = (
-    <>
-      <div className="image-card-container">
-        <AntImage
-          alt={name}
-          src={thumbnailUrl || imageUrl}
-          style={{ width: '100%', objectFit: 'cover' }}
-          preview={clickable ? { src: imageUrl } : false}
-          placeholder={loading ? <div className="image-placeholder" /> : undefined}
-          onLoad={handleImageLoaded}
-        />
-        {onSelect && (
-          <div className="image-select-overlay" onClick={() => onSelect(id)}>
-            <div className={`image-select-checkbox ${selected ? 'selected' : ''}`} />
-          </div>
-        )}
-      </div>
-      <Meta
-        title={name}
-        description={
-          description ? (
-            <Paragraph ellipsis={{ rows: 2 }}>{description}</Paragraph>
-          ) : null
-        }
-      />
-    </>
-  );
+  const formattedDate = uploadDate ? new Date(uploadDate).toLocaleDateString() : '';
 
   return (
     <Card
-      hoverable={clickable}
-      className={`image-card ${selected ? 'selected' : ''}`}
-      cover={cardContent}
-      actions={actions}
+      hoverable
+      className={`modern-image-card ${selected ? 'selected' : ''}`}
+      cover={
+        <div className="modern-image-cover">
+          <AntImage
+            alt={name}
+            src={thumbnailUrl || imageUrl}
+            preview={false} // 点击整个卡片进行导航或预览
+            placeholder={loading ? <div className="image-placeholder" /> : undefined}
+            onLoad={handleImageLoaded}
+            style={{ display: loading ? 'none' : 'block' }}
+          />
+          {loading && <div className="image-loading-spinner"></div>}
+          <div className="modern-image-overlay">
+            <div className="modern-image-actions">
+              <Tooltip title="查看详情">
+                <Link to={`/images/${id}`} className="modern-action-icon">
+                  <EyeOutlined />
+                </Link>
+              </Tooltip>
+              {showActions && onEdit && (
+                <Tooltip title="编辑">
+                  <span onClick={() => onEdit(id)} className="modern-action-icon">
+                    <EditOutlined />
+                  </span>
+                </Tooltip>
+              )}
+              {showActions && onDelete && (
+                <Tooltip title="删除">
+                  <span onClick={() => onDelete(id)} className="modern-action-icon modern-action-icon-delete">
+                    <DeleteOutlined />
+                  </span>
+                </Tooltip>
+              )}
+            </div>
+            {ownerUsername && <div className="modern-image-owner">@{ownerUsername}</div>}
+          </div>
+        </div>
+      }
     >
-      {/* 空内容，因为内容已在cover中显示 */}
+      <Meta
+        title={<Tooltip title={name}>{name}</Tooltip>}
+        // description={
+        //   <Paragraph ellipsis={{ rows: 2, expandable: false }} style={{ marginBottom: 0 }}>
+        //     {description || '暂无描述'}
+        //   </Paragraph>
+        // }
+      />
+      {formattedDate && <div className="modern-image-date">{formattedDate}</div>}
+      {onSelect && (
+        <div
+          className={`modern-image-select-indicator ${selected ? 'selected' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation(); // 防止点击选择时触发卡片导航
+            onSelect(id);
+          }}
+        />
+      )}
     </Card>
   );
 };

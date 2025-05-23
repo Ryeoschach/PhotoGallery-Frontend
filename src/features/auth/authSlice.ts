@@ -8,6 +8,7 @@ console.log('使用 request.ts 服务发送 API 请求');
 // 拦截器已在 request.ts 中配置
 
 // 注册用户
+// ...existing code...
 export const registerUser = createAsyncThunk<
   User, 
   RegisterRequest, 
@@ -17,12 +18,25 @@ export const registerUser = createAsyncThunk<
     const response = await request.post('/register/', userData);
     return response;
   } catch (err: any) {
-    return rejectWithValue(
-      err.response?.data?.detail || 
-      (typeof err.response?.data === 'string' ? err.response.data : 'Registration failed')
-    );
+    let errorMessage = 'Registration failed'; // 默认错误信息
+    if (err.response?.data) {
+      if (typeof err.response.data.detail === 'string' && err.response.data.detail.trim() !== '') {
+        errorMessage = err.response.data.detail;
+      } else if (typeof err.response.data === 'string' && err.response.data.trim() !== '') {
+        errorMessage = err.response.data;
+      } else if (typeof err.response.data === 'object') {
+        // 尝试从常见的错误结构中提取，例如 Django REST framework 的字段错误
+        const fieldErrors = Object.values(err.response.data).flat().join(' ');
+        if (fieldErrors.trim() !== '') {
+          errorMessage = fieldErrors;
+        }
+      }
+    }
+    return rejectWithValue(errorMessage);
   }
 });
+
+// ...existing code...
 
 // 登录用户
 export const loginUser = createAsyncThunk(
@@ -85,10 +99,27 @@ export const fetchUserProfile = createAsyncThunk<
     const response = await request.get('/me/');
     return response;
   } catch (err: any) {
-    return rejectWithValue(
-      err.response?.data?.detail || 
-      (typeof err.response?.data === 'string' ? err.response.data : 'Failed to fetch profile')
-    );
+    let errorMessage = '获取用户资料失败'; // 默认错误信息
+    if (err.response?.data) {
+      if (typeof err.response.data.detail === 'string') {
+        errorMessage = err.response.data.detail;
+      } else if (typeof err.response.data === 'string') {
+        errorMessage = err.response.data;
+      } else if (typeof err.response.data === 'object' && Object.keys(err.response.data).length > 0) {
+        // 尝试从常见的错误结构中提取信息或序列化
+        const errorData = err.response.data;
+        if (errorData.non_field_errors && Array.isArray(errorData.non_field_errors)) {
+          errorMessage = errorData.non_field_errors.join(', ');
+        } else {
+          try {
+            errorMessage = JSON.stringify(errorData);
+          } catch (e) {
+            // 序列化失败，保持默认
+          }
+        }
+      }
+    }
+    return rejectWithValue(errorMessage);
   }
 });
 
@@ -99,14 +130,23 @@ export const updateUserProfile = createAsyncThunk<
   { rejectValue: string }
 >('auth/updateProfile', async (userData, { rejectWithValue }) => {
   try {
-    // 使用 request 发送 PATCH 请求到 /me/ 端点
     const response = await request.patch('/me/', userData);
     return response;
   } catch (err: any) {
-    return rejectWithValue(
-      err.response?.data?.detail || 
-      (typeof err.response?.data === 'string' ? err.response.data : 'Failed to update profile')
-    );
+    let errorMessage = 'Failed to update profile'; // 默认错误信息
+    if (err.response?.data) {
+      if (typeof err.response.data.detail === 'string' && err.response.data.detail.trim() !== '') {
+        errorMessage = err.response.data.detail;
+      } else if (typeof err.response.data === 'string' && err.response.data.trim() !== '') {
+        errorMessage = err.response.data;
+      } else if (typeof err.response.data === 'object') {
+        const fieldErrors = Object.values(err.response.data).flat().join(' ');
+        if (fieldErrors.trim() !== '') {
+          errorMessage = fieldErrors;
+        }
+      }
+    }
+    return rejectWithValue(errorMessage);
   }
 });
 
@@ -128,18 +168,23 @@ export const checkAuthStatus = createAsyncThunk(
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        return rejectWithValue('No token found');
+        return rejectWithValue('No token found'); // 确保是字符串
       }
 
-      // request 拦截器会自动添加 Authorization 头
       const response = await request.get('/me/');
-      
       console.log('User session restored:', response);
       return response;
     } catch (error: any) {
       console.error('Failed to restore session:', error);
-      localStorage.removeItem('token'); // 移除无效的token
-      return rejectWithValue(error.message || 'Failed to restore session');
+      localStorage.removeItem('token');
+      // 确保 error.message 是字符串，或者提供一个默认字符串
+      let errorMessage = 'Failed to restore session';
+      if (error.response?.data?.detail && typeof error.response.data.detail === 'string') {
+        errorMessage = error.response.data.detail;
+      } else if (error.message && typeof error.message === 'string') {
+        errorMessage = error.message;
+      }
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -183,7 +228,7 @@ const authSlice = createSlice({
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.status = 'failed';
-        state.error = action.payload || '注册失败';
+        state.error = typeof action.payload === 'string' ? action.payload : '注册失败';
       })
       
       // 处理登录
@@ -197,7 +242,7 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.status = 'failed';
-        state.error = action.payload || '登录失败';
+        state.error = typeof action.payload === 'string' ? action.payload : '登录失败';
       })
       
       // 处理获取用户资料
@@ -210,7 +255,7 @@ const authSlice = createSlice({
       })
       .addCase(fetchUserProfile.rejected, (state, action) => {
         state.status = 'failed';
-        state.error = action.payload || '获取用户资料失败';
+        state.error = typeof action.payload === 'string' ? action.payload : '获取用户资料失败';
       })
       
       // 处理更新用户资料
@@ -223,7 +268,7 @@ const authSlice = createSlice({
       })
       .addCase(updateUserProfile.rejected, (state, action) => {
         state.status = 'failed';
-        state.error = action.payload || '更新用户资料失败';
+        state.error = typeof action.payload === 'string' ? action.payload : '更新用户资料失败';
       })
       
       // 处理注销
