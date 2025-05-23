@@ -15,7 +15,7 @@ import type { AppDispatch } from '../../app/store';
 import ImageCard from '../../components/ImageCard';
 import EmptyState from '../../components/EmptyState';
 import '../../components/ImageCard.css'; // 确保 ImageCard 的新 CSS 被引入
-import { useNavigate } from 'react-router-dom'; // 导入 useNavigate
+import { useNavigate, useLocation } from 'react-router-dom'; // 导入 useNavigate 和 useLocation
 
 interface ImageGridProps {
   selectionMode?: boolean;  // 是否启用选择模式
@@ -25,6 +25,7 @@ interface ImageGridProps {
 const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = 'all' }) => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate(); // 初始化 useNavigate
+  const location = useLocation(); // 初始化 useLocation
   const images = useSelector(selectFilteredImages);
   const selectedImageIds = useSelector(selectSelectedImageIds);
   const currentUser = useSelector(selectCurrentUser); // 使用selectCurrentUser选择器获取当前用户
@@ -43,7 +44,8 @@ const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = '
   const initialLoadDoneRef = useRef<boolean>(false);
 
   // Determine current path for conditional rendering
-  const currentPath = window.location.pathname;
+  // const currentPath = window.location.pathname; // 改用 useLocation
+  const currentPath = location.pathname;
   
   // 在组件挂载和filter/pathname变化时加载图片数据
   useEffect(() => {
@@ -182,6 +184,7 @@ const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = '
                 onEdit={currentPath === '/my-photos' ? handleEdit : undefined}
                 ownerUsername={typeof image.owner === 'string' ? image.owner : (image.owner ? `User ID: ${image.owner}` : undefined)} // 使用 image.owner
                 uploadDate={image.uploaded_at} // 传递上传日期
+                isHomepageCard={currentPath === '/' || currentPath === '/home'} // 设置 isHomepageCard
               />
             </List.Item>
           );

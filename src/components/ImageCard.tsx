@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Image as AntImage, Card, Tooltip } from 'antd';
 import { EyeOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import './ImageCard.css'; // 引入自定义样式
 
 const { Meta } = Card;
@@ -20,6 +20,7 @@ interface ImageProps {
   showActions?: boolean;
   ownerUsername?: string; // 添加所有者用户名属性
   uploadDate?: string; // 添加上传日期属性
+  isHomepageCard?: boolean; // 新增属性，用于判断是否为首页卡片
 }
 
 /**
@@ -39,8 +40,10 @@ const ImageCard: React.FC<ImageProps> = ({
   showActions = true,
   ownerUsername, // 接收所有者用户名
   uploadDate, // 接收上传日期
+  isHomepageCard = false, // 默认为 false
 }) => {
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate(); // 确保导入 useNavigate
 
   const handleImageLoaded = () => {
     setLoading(false);
@@ -48,10 +51,17 @@ const ImageCard: React.FC<ImageProps> = ({
 
   const formattedDate = uploadDate ? new Date(uploadDate).toLocaleDateString() : '';
 
+  const handleCardClick = () => {
+    if (isHomepageCard) {
+      navigate(`/images/${id}`);
+    }
+  };
+
   return (
     <Card
       hoverable
       className={`modern-image-card ${selected ? 'selected' : ''}`}
+      onClick={handleCardClick} // 应用卡片点击处理
       cover={
         <div className="modern-image-cover">
           <AntImage
@@ -72,14 +82,14 @@ const ImageCard: React.FC<ImageProps> = ({
               </Tooltip>
               {showActions && onEdit && (
                 <Tooltip title="编辑">
-                  <span onClick={() => onEdit(id)} className="modern-action-icon">
+                  <span onClick={(e) => { e.stopPropagation(); onEdit(id); }} className="modern-action-icon">
                     <EditOutlined />
                   </span>
                 </Tooltip>
               )}
               {showActions && onDelete && (
                 <Tooltip title="删除">
-                  <span onClick={() => onDelete(id)} className="modern-action-icon modern-action-icon-delete">
+                  <span onClick={(e) => { e.stopPropagation(); onDelete(id); }} className="modern-action-icon modern-action-icon-delete">
                     <DeleteOutlined />
                   </span>
                 </Tooltip>
