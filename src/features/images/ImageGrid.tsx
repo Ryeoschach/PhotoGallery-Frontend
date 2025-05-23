@@ -1,7 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { List, Card, Image as AntImage, Checkbox } from 'antd';
-import { Link } from 'react-router-dom';
+import { List } from 'antd';
 import { 
   selectFilteredImages, 
   selectSelectedImageIds,
@@ -10,9 +9,9 @@ import {
   fetchImages
 } from './imagesSlice';
 import type { AppDispatch } from '../../app/store';
-import './ImageGrid.css'; // 导入CSS文件
-
-// import type { Image } from './types';
+import ImageCard from '../../components/ImageCard';
+import EmptyState from '../../components/EmptyState';
+import './ImageGrid.css'; // 保留原CSS文件导入
 
 interface ImageGridProps {
   selectionMode?: boolean;  // 是否启用选择模式
@@ -67,17 +66,9 @@ const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = '
       }
     }
     
-    // 在首页上，始终使用filter="all"加载所有照片
+    // 在首页上，不在这里加载照片，改由HomePage组件负责
     if (currentPath === '/' || currentPath === '/home') {
-      // 如果已经加载了照片，且不是从"我的照片"页面导航过来的，可以跳过
-      if (!pathChanged && initialLoadDoneRef.current && imagesStatus === 'succeeded') {
-        console.log('跳过请求 - 已经在首页加载了所有照片');
-        return;
-      }
-      
-      console.log('在首页加载所有照片');
-      dispatch(fetchImages());
-      initialLoadDoneRef.current = true;
+      console.log('在首页上 - 由HomePage组件处理加载');
       return;
     }
     
@@ -92,11 +83,15 @@ const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = '
     initialLoadDoneRef.current = true;
   }, [dispatch, filter, window.location.pathname, imagesStatus]);
   
+  // 单独获取selectedGroupId，使其成为组件状态的一部分
+  const selectedGroupId = useSelector((state: any) => state.images.selectedGroupId);
+  
   const filteredImages = React.useMemo(() => {
     console.log('过滤图片数据:', { 
       filter, 
       currentUser, 
       totalImages: images.length, 
+      selectedGroupId,
       imageSample: images.length > 0 ? images[0] : 'No images',
       allOwners: images.map(img => img?.owner)
     });
@@ -108,6 +103,17 @@ const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = '
 
     // 首页上，确保总是返回所有照片
     if (window.location.pathname === '/' || window.location.pathname === '/home') {
+      console.log('首页图片过滤，selectedGroupId:', selectedGroupId);
+      
+      if (selectedGroupId) {
+        console.log(`首页应用分组过滤，分组ID: ${selectedGroupId}，总图片数: ${images.length}`);
+        const filtered = images.filter(img => 
+          img && img.groups && Array.isArray(img.groups) && 
+          img.groups.includes(selectedGroupId)
+        );
+        console.log(`首页分组过滤后剩余图片: ${filtered.length}张`);
+        return filtered;
+      }
       return images;
     }
 
@@ -145,12 +151,17 @@ const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = '
       });
     }
     return images;
-  }, [images, filter, currentUser]);
+  }, [images, filter, currentUser, selectedGroupId]);
 
   // 处理图片选择/取消选择
   const handleImageSelect = (id: number) => {
     dispatch(toggleImageSelection(id));
   };
+  
+  // 如果没有图片，显示空状态
+  if (filteredImages.length === 0) {
+    return <EmptyState message="暂无图片" description="没有找到符合条件的图片" />;
+  }
 
   return (
     <List
@@ -171,57 +182,17 @@ const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = '
         
         return (
           <List.Item>
-            <div style={{ position: 'relative' }}>
-              {selectionMode && (
-                <Checkbox
-                  checked={isSelected}
-                  onChange={() => handleImageSelect(image.id)}
-                  style={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                    zIndex: 1,
-                    background: 'rgba(255, 255, 255, 0.7)',
-                    borderRadius: 4,
-                    padding: 4
-                  }}
-                />
-              )}
-              <Card
-                hoverable
-                className="modern-card"
-                cover={
-                  <Link to={`/images/${image.id}`}>
-                    <AntImage
-                      className="card-image"
-                      src={image?.thumbnail || image?.image}
-                      alt={image?.name || 'Image'}
-                      style={{ 
-                        width: '100%', 
-                        height: 200, 
-                        objectFit: 'cover',
-                        filter: isSelected ? 'brightness(0.8)' : 'none',
-                        borderRadius: '8px 8px 0 0'  // 顶部圆角
-                      }}
-                      preview={{
-                        mask: <div>查看大图</div>, // 自定义预览提示文本
-                      }}
-                      fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect width='100%25' height='100%25' fill='%23f0f0f0'/%3E%3C/svg%3E"
-                    />
-                  </Link>
-                }
-              >
-                <Card.Meta
-                  className="card-meta"
-                  title={<div className="card-title">{image?.name || 'Untitled'}</div>}
-                  // description={
-                  //   image?.description && (
-                  //     <div className="card-description">{image.description}</div>
-                  //   )
-                  // }
-                />
-              </Card>
-            </div>
+            <ImageCard
+              id={image.id}
+              name={image.name || 'Untitled'}
+              description={image.description}
+              imageUrl={image.image}
+              thumbnailUrl={image.thumbnail || image.image}
+              selected={isSelected}
+              onSelect={selectionMode ? handleImageSelect : undefined}
+              clickable={true}
+              showActions={false} // 在网格视图中不显示操作按钮，保持简洁
+            />
           </List.Item>
         );
       }}

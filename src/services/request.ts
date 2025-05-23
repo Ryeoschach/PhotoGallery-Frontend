@@ -40,21 +40,19 @@ extendRequest.interceptors.request.use((url, options) => {
   const token = localStorage.getItem('token');
   
   if (token) {
-    // 确保headers存在
-    const headers = {
+    // 确保headers对象存在
+    options.headers = options.headers || {};
+    
+    // 添加Authorization头
+    options.headers = {
       ...options.headers,
       'Authorization': `Bearer ${token}`
     };
     
     // 调试日志
-    console.log(`Adding auth header to ${url}`, headers);
-    
-    return {
-      url,
-      options: { ...options, headers }
-    };
+    console.log(`为请求添加认证头: ${url}`);
   } else {
-    console.log(`No token found for request to ${url}`);
+    console.log(`无法找到身份令牌，请求可能被拒绝: ${url}`);
   }
   
   return { url, options };

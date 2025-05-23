@@ -1,17 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
-  Select, 
   Button, 
   Modal, 
   Form, 
   Input, 
-  Divider, 
-  Space, 
-  message, 
-  Popconfirm
+  message
 } from 'antd';
-import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { PlusOutlined } from '@ant-design/icons';
 import { 
   fetchGroups, 
   createGroup,
@@ -24,13 +20,15 @@ import {
 } from './imagesSlice';
 import type { AppDispatch } from '../../app/store';
 import type { Group } from './imagesSlice';
-
-const { Option } = Select;
+import GroupSelect from '../../components/GroupSelect';
+import ActionForm from '../../components/ActionForm';
+import { showConfirmation } from '../../components/Confirmation';
 
 const GroupSelector: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const groups = useSelector(selectAllGroups);
   const status = useSelector(getGroupsStatus);
+  const groupError = useSelector((state: any) => state.images.groupsError);
   const selectedGroupId = useSelector(selectSelectedGroupId);
   
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
@@ -41,18 +39,29 @@ const GroupSelector: React.FC = () => {
   
   // 组件挂载时加载分组数据
   useEffect(() => {
+    // 确保有登录令牌
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.warn('没有找到认证令牌，可能无法执行需要认证的操作');
+    }
+    
+    // 加载分组列表
     dispatch(fetchGroups());
   }, [dispatch]);
   
   // 处理分组过滤改变
-  const handleGroupChange = (value: number | undefined) => {
-    console.log('Group selected:', value);  // 调试日志
-    // 将undefined转换为null，确保在取消选择时正确设置为null
-    dispatch(setSelectedGroup(value === undefined ? null : value));
+  const handleGroupChange = (groupIds: number[]) => {
+    // 我们的选择器可以支持多选，但当前逻辑只使用单选
+    // 取第一个选中的分组ID，如果为空则设为null
+    const groupId = groupIds.length > 0 ? groupIds[0] : null;
+    console.log('GroupSelector: 分组选择变更为', groupId, '完整组ID列表:', groupIds);
+    dispatch(setSelectedGroup(groupId));
   };
   
   // 打开创建分组的弹窗
   const showCreateGroupModal = () => {
+    // 确保表单是空的
+    createForm.resetFields();
     setIsCreateModalVisible(true);
   };
   
@@ -80,31 +89,68 @@ const GroupSelector: React.FC = () => {
   };
   
   // 创建分组
-  const handleCreateGroup = async () => {
+  const handleCreateGroup = async (values: any) => {
     try {
-      const values = await createForm.validateFields();
+      console.log('准备创建分组:', values);
       
-      await dispatch(createGroup({
-        name: values.name,
-        description: values.description || ''
-      })).unwrap();
+      // 表单已经有验证规则，但再次确保所有必填字段都有值
+      const groupData = {
+        name: values.name ? values.name.trim() : '',
+        description: values.description ? values.description.trim() : ''
+      };
       
-      message.success(`分组 "${values.name}" 创建成功`);
+      if (!groupData.name) {
+        message.error('分组名称不能为空');
+        return;
+      }
+      
+      const result = await dispatch(createGroup(groupData)).unwrap();
+      console.log('创建分组成功:', result);
+      
+      message.success(`分组 "${groupData.name}" 创建成功`);
       setIsCreateModalVisible(false);
       createForm.resetFields();
-    } catch (error) {
-      console.error('Failed to create group:', error);
-      message.error('创建分组失败');
+      
+      // 刷新分组列表
+      dispatch(fetchGroups());
+    } catch (error: any) {
+      console.error('创建分组失败:', error);
+      
+      // 处理后端返回的验证错误
+      if (error && typeof error === 'object') {
+        // 处理字段验证错误
+        if (error.name && Array.isArray(error.name)) {
+          message.error(`分组名称错误: ${error.name[0]}`);
+          return;
+        }
+        if (error.description && Array.isArray(error.description)) {
+          message.error(`分组描述错误: ${error.description[0]}`);
+          return;
+        }
+        if (error.detail) {
+          message.error(`创建分组失败: ${error.detail}`);
+          return;
+        }
+      }
+      
+      // 其他一般错误处理
+      if (error === 'Authentication credentials were not provided.') {
+        message.error('创建分组失败: 您需要先登录');
+      } else if (typeof error === 'string') {
+        message.error(`创建分组失败: ${error}`);
+      } else if (error && error.message) {
+        message.error(`创建分组失败: ${error.message}`);
+      } else {
+        message.error('创建分组失败，请稍后重试');
+      }
     }
   };
   
   // 更新分组
-  const handleUpdateGroup = async () => {
-    try {
-      if (!currentGroup) return;
-      
-      const values = await editForm.validateFields();
-      
+  const handleUpdateGroup = async (values: any) => {
+    if (!currentGroup) return;
+    
+    try {      
       await dispatch(updateGroup({
         id: currentGroup.id,
         name: values.name,
@@ -125,7 +171,7 @@ const GroupSelector: React.FC = () => {
   const handleDeleteGroup = async (id: number) => {
     try {
       await dispatch(deleteGroup(id)).unwrap();
-      message.success('分组已删除');
+      message.success('分组删除成功');
       
       // 如果当前选中的分组被删除，则将选择器重置为null
       if (selectedGroupId === id) {
@@ -137,97 +183,96 @@ const GroupSelector: React.FC = () => {
     }
   };
   
-  // 自定义选项渲染
-  const customOptionRender = (group: Group) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <span>{group.name}</span>
-      <Space>
-        <Button
-          type="text"
-          icon={<EditOutlined />}
-          size="small"
-          onClick={(e) => {
-            e.stopPropagation();
-            showEditGroupModal(group);
-          }}
-        />
-        <Popconfirm
-          title="确认删除该分组吗？"
-          onConfirm={(e) => {
-            e?.stopPropagation();
-            handleDeleteGroup(group.id);
-          }}
-          onCancel={(e) => e?.stopPropagation()}
-          okText="确认"
-          cancelText="取消"
-        >
-          <Button
-            type="text"
-            icon={<DeleteOutlined />}
-            size="small"
-            danger
-            onClick={(e) => e.stopPropagation()}
-          />
-        </Popconfirm>
-      </Space>
-    </div>
-  );
+  // 确认删除分组
+  const confirmDeleteGroup = (group: Group) => {
+    showConfirmation({
+      title: '删除分组',
+      content: `确定要删除分组 "${group.name}" 吗？此操作不可撤销，但不会删除组内的照片。`,
+      onConfirm: () => handleDeleteGroup(group.id),
+      danger: true
+    });
+  };
   
-  // 自定义下拉菜单渲染
-  const popupRender = (menu: React.ReactElement) => (
-    <div>
-      {menu}
-      <Divider style={{ margin: '4px 0' }} />
-      <div style={{ padding: '8px', textAlign: 'center' }}>
-        <Button type="text" icon={<PlusOutlined />} onClick={showCreateGroupModal}>
-          创建新分组
-        </Button>
-      </div>
-    </div>
-  );
+  // 处理分组编辑
+  const handleEditClick = (groupId: number) => {
+    const group = groups.find(g => g.id === groupId);
+    if (group) {
+      showEditGroupModal(group);
+    }
+  };
+  
+  // 处理分组删除
+  const handleDeleteClick = (groupId: number) => {
+    const group = groups.find(g => g.id === groupId);
+    if (group) {
+      confirmDeleteGroup(group);
+    }
+  };
+  
+  // 将分组数据转换为组件需要的格式
+  const groupOptions = groups.map(group => ({
+    id: group.id,
+    name: group.name,
+    description: group.description || ''
+  }));
   
   return (
-    <>
-      <Select
-        style={{ width: 250 }}
-        placeholder="选择分组过滤"
-        value={selectedGroupId === null ? undefined : selectedGroupId}
-        onChange={handleGroupChange}
-        allowClear
-        loading={status === 'loading'}
-        popupRender={popupRender}
-        optionLabelProp="label"
-      >
-        {groups.map(group => (
-          <Option 
-            key={group.id} 
-            value={group.id} 
-            title={group.description}
-            label={group.name}
-          >
-            {customOptionRender(group)}
-          </Option>
-        ))}
-      </Select>
+    <div className="group-selector">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h3 style={{ margin: 0 }}>按分组过滤</h3>
+        <Button 
+          type="primary" 
+          icon={<PlusOutlined />} 
+          onClick={showCreateGroupModal}
+        >
+          创建分组
+        </Button>
+      </div>
       
-      {/* 创建分组的弹窗 */}
+      <div className="filter-container">
+        <GroupSelect
+          groups={groupOptions}
+          value={selectedGroupId ? [selectedGroupId] : []}
+          onChange={handleGroupChange}
+          isLoading={status === 'loading'}
+          placeholder="选择一个分组进行过滤"
+          style={{ width: '30%' }}
+          onActionClick={{
+            edit: handleEditClick,
+            delete: handleDeleteClick
+          }}
+          showActions={true}
+          maxTagCount={1} // 最多显示1个标签
+        />
+        {groupError && (
+          <div style={{ color: 'red', marginTop: 8 }}>
+            {typeof groupError === 'string' ? groupError : '获取分组出错'}
+          </div>
+        )}
+      </div>
+      
+      {/* 创建分组弹窗 */}
       <Modal
         title="创建新分组"
         open={isCreateModalVisible}
-        onOk={handleCreateGroup}
         onCancel={handleCreateCancel}
-        okText="创建"
-        cancelText="取消"
+        footer={null}
       >
-        <Form
+        <ActionForm
           form={createForm}
-          layout="vertical"
-          name="create_group_form"
+          onSubmit={handleCreateGroup}
+          onCancel={handleCreateCancel}
+          loading={status === 'loading'}
+          submitText="创建"
         >
           <Form.Item
             name="name"
             label="分组名称"
-            rules={[{ required: true, message: '请输入分组名称' }]}
+            rules={[
+              { required: true, message: '请输入分组名称' },
+              { whitespace: true, message: '分组名称不能只包含空格' },
+              { min: 1, max: 100, message: '分组名称长度需要在1-100个字符之间' }
+            ]}
           >
             <Input placeholder="例如：风景、人物、动物等" />
           </Form.Item>
@@ -241,22 +286,22 @@ const GroupSelector: React.FC = () => {
               rows={3}
             />
           </Form.Item>
-        </Form>
+        </ActionForm>
       </Modal>
       
-      {/* 编辑分组的弹窗 */}
+      {/* 编辑分组弹窗 */}
       <Modal
         title="编辑分组"
         open={isEditModalVisible}
-        onOk={handleUpdateGroup}
         onCancel={handleEditCancel}
-        okText="保存"
-        cancelText="取消"
+        footer={null}
       >
-        <Form
+        <ActionForm
           form={editForm}
-          layout="vertical"
-          name="edit_group_form"
+          onSubmit={handleUpdateGroup}
+          onCancel={handleEditCancel}
+          loading={status === 'loading'}
+          submitText="保存"
         >
           <Form.Item
             name="name"
@@ -275,9 +320,9 @@ const GroupSelector: React.FC = () => {
               rows={3}
             />
           </Form.Item>
-        </Form>
+        </ActionForm>
       </Modal>
-    </>
+    </div>
   );
 };
 

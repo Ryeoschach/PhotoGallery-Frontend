@@ -1,0 +1,173 @@
+/* 共享组件样式 */
+
+/* === 布局和间距 === */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--heading-color, #262626);
+}
+
+.page-subtitle {
+  font-size: 16px;
+  color: var(--text-secondary, #6b7280);
+  margin-bottom: 16px;
+}
+
+.section {
+  margin-bottom: 32px;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  color: var(--heading-color, #262626);
+}
+
+/* === 卡片样式 === */
+.modern-card {
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  background-color: white;
+  border: none;
+}
+
+.modern-card-body {
+  padding: 24px;
+}
+
+/* === 表单样式 === */
+.form-actions {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* === 图片和媒体 === */
+.image-card {
+  transition: all 0.3s ease;
+  height: 100%;
+}
+
+.image-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.image-card.selected {
+  border: 2px solid #1890ff;
+}
+
+.image-card-container {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px 8px 0 0;
+  aspect-ratio: 4/3;
+}
+
+.image-placeholder {
+  width: 100%;
+  height: 100%;
+  background-color: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-select-overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  cursor: pointer;
+}
+
+.image-select-checkbox {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid white;
+  background-color: rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.image-select-checkbox.selected {
+  background-color: #1890ff;
+  border-color: white;
+}
+
+/* === 加载状态 === */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 48px 0;
+  width: 100%;
+}
+
+/* === 动画 === */
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* === 响应式调整 === */
+@media (max-width: 768px) {
+  .page-title {
+    font-size: 24px;
+  }
+  
+  .section-title {
+    font-size: 18px;
+  }
+  
+  .modern-card-body {
+    padding: 16px;
+  }
+}
+
+/* === 分组选择器 === */
+.group-description {
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+}
+
+/* === 搜索过滤器 === */
+.search-filter-form {
+  margin-bottom: 24px;
+}
+
+.filter-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 576px) {
+  .filter-actions {
+    justify-content: flex-start;
+    margin-top: 8px;
+  }
+}

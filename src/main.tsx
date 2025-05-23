@@ -6,6 +6,7 @@ import AppRouter from './router';
 import 'antd/dist/reset.css'; // 引入 Ant Design 的重置样式
 import './index.css'; // 全局样式
 import './App.css'; // App 相关样式
+import './styles/components.css'; // 共享组件样式
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

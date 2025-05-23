@@ -1,0 +1,13 @@
+/* 加载中的样式 */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  padding: 40px 0;
+}
+
+/* 样式重置 */
+.image-grid-container {
+  transition: padding 0.3s ease-in-out;
+}

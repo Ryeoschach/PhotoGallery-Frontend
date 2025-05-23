@@ -321,6 +321,7 @@ export const updateImage = createAsyncThunk<Image, ImageUpdateRequest>(
     
     console.log('Updating image with data:', updateData); 
     
+    // 正确使用 umi-request 的 patch 方法：(url, data, options)
     const response = await apiClient.patch(`/images/${id}/`, {
       data: updateData,
       headers: {
@@ -329,17 +330,7 @@ export const updateImage = createAsyncThunk<Image, ImageUpdateRequest>(
     });
     console.log('Update response:', response);
     
-    // 检查响应的结构，提取正确的数据部分
-    if (response && typeof response === 'object') {
-      // 如果 response 是对象且有 data 属性
-      if ('data' in response) return response.data as Image;
-      
-      // 如果 response 本身就是包含需要的字段的对象，直接返回
-      if ('id' in response && 'name' in response && 'image' in response) return response as Image;
-    }
-    
-    // 默认返回响应
-    return response as Image;
+    return extractImageData(response);
   }
 );
 
@@ -387,54 +378,96 @@ export const fetchGroups = createAsyncThunk(
 // 创建分组
 export const createGroup = createAsyncThunk(
   'images/createGroup',
-  async (groupData: GroupCreateRequest) => {
-    const response = await apiClient.post('/groups/', {
-      data: groupData,
-      headers: {
-        'Content-Type': 'application/json'
+  async (groupData: GroupCreateRequest, { rejectWithValue }) => {
+    try {
+      // 验证数据有效性
+      if (!groupData.name || groupData.name.trim() === '') {
+        return rejectWithValue({ name: ["分组名称不能为空"] });
       }
-    });
-    console.log('Create group response:', response);
-    
-    // 检查响应的结构，提取正确的数据部分
-    if (response && typeof response === 'object') {
-      // 如果 response 是对象且有 data 属性
-      if ('data' in response) return response.data;
       
-      // 如果 response 本身就是包含需要的字段的对象，直接返回
-      if ('id' in response && 'name' in response) return response;
+      // 确保登录状态
+      const token = localStorage.getItem('token');
+      if (!token) {
+        return rejectWithValue('用户未登录，请先登录后再创建分组');
+      }
+      
+      // 准备请求数据 - 确保符合后端API要求
+      const requestData = {
+        name: groupData.name.trim(),
+        description: groupData.description ? groupData.description.trim() : ''
+      };
+      
+      // 打印请求详情
+      console.log('创建分组请求数据:', requestData);
+      
+      // 正确使用 umi-request 的 post 方法：(url, data, options)
+      const response = await apiClient.post('/groups/', {
+        data: requestData,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        getResponse: true, // 获取完整响应以检查状态码
+      });
+      
+      console.log('创建分组响应:', response);
+      
+      // 检查响应状态
+      if (response.response && response.response.status >= 400) {
+        console.error('创建分组失败:', response.response.status, response.data);
+        return rejectWithValue(response.data || '创建分组失败');
+      }
+      
+      // 提取响应数据
+      return response.data;
+    } catch (error: any) {
+      console.error('创建分组出错:', error);
+      // 处理特定的错误类型
+      if (error.response && error.response.data) {
+        return rejectWithValue(error.response.data);
+      }
+      return rejectWithValue(error.message || '创建分组失败');
     }
-    
-    return response;
   }
 );
 
 // 更新分组
 export const updateGroup = createAsyncThunk(
   'images/updateGroup',
-  async (groupData: GroupUpdateRequest) => {
-    // 修复：将数据和headers合并到options对象中
-    const response = await apiClient.patch(`/groups/${groupData.id}/`, {
-      data: {  // 将数据放在data属性中
-        name: groupData.name,
-        description: groupData.description
-      },
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    console.log('Update group response:', response);
-    
-    // 检查响应的结构，提取正确的数据部分
-    if (response && typeof response === 'object') {
-      // 如果 response 是对象且有 data 属性
-      if ('data' in response) return response.data;
+  async (groupData: GroupUpdateRequest, { rejectWithValue }) => {
+    try {
+      // 使用正确的参数格式: apiClient.patch(url, options)
+      // 其中options包含data和headers
+      const response = await apiClient.patch(
+        `/groups/${groupData.id}/`, 
+        {
+          data: { name: groupData.name, description: groupData.description },
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
       
-      // 如果 response 本身就是包含需要的字段的对象，直接返回
-      if ('id' in response && 'name' in response) return response;
+      console.log('Update group response:', response);
+      
+      // 提取响应数据
+      if (response && typeof response === 'object') {
+        // 如果response是对象且有data属性，返回data
+        if ('data' in response) return response.data;
+        
+        // 如果response本身就是包含需要的字段的对象，直接返回
+        if ('id' in response && 'name' in response) return response;
+      }
+      
+      return response;
+    } catch (error: any) {
+      console.error('更新分组出错:', error);
+      // 处理特定的错误类型
+      if (error.response && error.response.data) {
+        return rejectWithValue(error.response.data);
+      }
+      return rejectWithValue(error.message || '更新分组失败');
     }
-    
-    return response;
   }
 );
 
@@ -452,8 +485,9 @@ export const updateImageGroups = createAsyncThunk<Image, { imageId: number, grou
   'images/updateImageGroups',
   async ({ imageId, groupIds }) => {
     console.log(`Updating image ${imageId} with groups:`, groupIds);
+    // 修复：使用正确的参数格式 (url, data, options)
     const response = await apiClient.patch(`/images/${imageId}/`, {
-      data: { groups: groupIds },
+      groups: groupIds,
       headers: {
         'Content-Type': 'application/json'
       }
@@ -472,6 +506,46 @@ export const updateImageGroups = createAsyncThunk<Image, { imageId: number, grou
     return response as Image;
   }
 );
+
+// API 请求辅助函数，用于处理和格式化响应数据
+/**
+ * 从 API 响应提取有效数据
+ * @param response API响应对象
+ * @returns 提取的数据对象或数组
+ */
+export const extractResponseData = (response: any) => {
+  if (response && typeof response === 'object') {
+    // 如果 response 是对象且有 data 属性
+    if ('data' in response) return response.data;
+    
+    // 如果 response 本身就是一个数组，那可能它就是我们需要的数据
+    if (Array.isArray(response)) return response;
+    
+    // 返回响应本身，可能是所需的对象
+    return response;
+  }
+  
+  // 默认返回响应
+  return response;
+};
+
+/**
+ * 从响应中提取图片数据
+ * @param response API响应对象
+ * @returns 图片对象
+ */
+export const extractImageData = (response: any): Image => {
+  if (response && typeof response === 'object') {
+    // 如果 response 是对象且有 data 属性
+    if ('data' in response) return response.data as Image;
+    
+    // 如果 response 本身就是包含需要的字段的对象，直接返回
+    if ('id' in response && 'name' in response && 'image' in response) return response as Image;
+  }
+  
+  // 默认返回响应
+  return response as Image;
+};
 
 // 创建 Slice
 const imagesSlice = createSlice({
@@ -664,13 +738,22 @@ const imagesSlice = createSlice({
       })
       
       // 创建分组
+      .addCase(createGroup.pending, (state) => {
+        state.groupsStatus = 'loading';
+        state.groupsError = null;
+      })
       .addCase(createGroup.fulfilled, (state, action) => {
+        state.groupsStatus = 'succeeded';
         // 确保action.payload是一个有效的Group对象
         if (action.payload && typeof action.payload === 'object' && 'id' in action.payload && 'name' in action.payload) {
           state.groups.push(action.payload as Group);
         } else {
           console.error('Create group succeeded but returned invalid data:', action.payload);
         }
+      })
+      .addCase(createGroup.rejected, (state, action) => {
+        state.groupsStatus = 'failed';
+        state.groupsError = action.error.message || '创建分组失败';
       })
       
       // 更新分组
@@ -741,23 +824,17 @@ export const selectFilteredImages = createSelector(
    (state: RootState) => state.images.selectedGroupId],
   (list, selectedGroupId) => {
     // 调试日志，帮助排查问题
-    console.log('selectFilteredImages:', { 
+    console.log('selectFilteredImages 选择器:', { 
       totalImages: list.length, 
       selectedGroupId, 
       isNull: selectedGroupId === null,
-      isUndefined: selectedGroupId === undefined
+      isUndefined: selectedGroupId === undefined,
+      location: typeof window !== 'undefined' ? window.location.pathname : 'unknown'
     });
     
-    // 如果selectedGroupId为null或undefined，返回所有照片
-    if (selectedGroupId === null || selectedGroupId === undefined) {
-      return list;
-    }
-    
-    // 根据分组ID过滤照片
-    return list.filter(image => 
-      image && image.groups && Array.isArray(image.groups) && 
-      image.groups.includes(selectedGroupId)
-    );
+    // 此选择器现在仅负责返回完整的图片列表
+    // 具体的过滤逻辑移到了ImageGrid组件中
+    return list;
   }
 );
 
