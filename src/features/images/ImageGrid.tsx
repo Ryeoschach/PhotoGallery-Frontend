@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { List } from 'antd';
-import { 
-  selectFilteredImages, 
+import {
+  selectFilteredImages,
   selectSelectedImageIds,
   selectImagesStatus,
   toggleImageSelection,
@@ -15,6 +15,7 @@ import type { AppDispatch } from '../../app/store';
 import ImageCard from '../../components/ImageCard';
 import EmptyState from '../../components/EmptyState';
 import './ImageGrid.css'; // 保留原CSS文件导入
+import { useNavigate } from 'react-router-dom'; // 导入 useNavigate
 
 interface ImageGridProps {
   selectionMode?: boolean;  // 是否启用选择模式
@@ -23,6 +24,7 @@ interface ImageGridProps {
 
 const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = 'all' }) => {
   const dispatch = useDispatch<AppDispatch>();
+  const navigate = useNavigate(); // 初始化 useNavigate
   const images = useSelector(selectFilteredImages);
   const selectedImageIds = useSelector(selectSelectedImageIds);
   const currentUser = useSelector(selectCurrentUser); // 使用selectCurrentUser选择器获取当前用户
@@ -32,21 +34,19 @@ const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = '
   
   // 单独获取selectedGroupId，使其成为组件状态的一部分
   const selectedGroupId = useSelector((state: RootState) => state.images.selectedGroupId);
-  
-  // 从Redux中获取全局过滤器状态 - 将这个声明移到了useEffect之前
   const storeFilter = useSelector((state: RootState) => state.images.filter);
   
-  // 使用prop传入的filter优先，这样可以确保组件参数能覆盖全局状态
   const effectiveFilter = filter || storeFilter;
   
-  // 使用ref来追踪之前的filter和pathname，防止重复请求
   const prevFilterRef = useRef<string>(filter);
   const prevPathRef = useRef<string>(window.location.pathname);
   const initialLoadDoneRef = useRef<boolean>(false);
+
+  // Determine current path for conditional rendering
+  const currentPath = window.location.pathname;
   
   // 在组件挂载和filter/pathname变化时加载图片数据
   useEffect(() => {
-    const currentPath = window.location.pathname;
     console.log(
       'ImageGrid useEffect - filter:', filter, 
       'status:', imagesStatus, 
@@ -139,6 +139,11 @@ const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = '
   const handleImageSelect = (id: number) => {
     dispatch(toggleImageSelection(id));
   };
+
+  // 添加 handleEdit 函数
+  const handleEdit = (id: number) => {
+    navigate(`/images/${id}`);
+  };
   
   // 如果没有图片，显示空状态
   if (filteredImages.length === 0) {
@@ -173,7 +178,8 @@ const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = '
               selected={isSelected}
               onSelect={selectionMode ? handleImageSelect : undefined}
               clickable={true}
-              showActions={false} // 在网格视图中不显示操作按钮，保持简洁
+              showActions={true} // Keep actions bar visible (e.g., for "View")
+              onEdit={currentPath === '/my-photos' ? handleEdit : undefined} // Conditionally pass onEdit
             />
           </List.Item>
         );
