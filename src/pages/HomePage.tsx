@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Row, Col, Space } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchImages, selectImagesStatus, selectSelectedGroupId } from '../features/images/imagesSlice';
+import { fetchImages, selectImagesStatus, setFilter } from '../features/images/imagesSlice';
 import ImageGrid from '../features/images/ImageGrid';
 import GroupSelector from '../features/images/GroupSelector';
 import PageCard from '../components/PageCard';
@@ -11,21 +11,16 @@ import type { AppDispatch } from '../app/store';
 const HomePage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const imagesStatus = useSelector(selectImagesStatus);
-  const selectedGroupId = useSelector(selectSelectedGroupId);
   
   // 确保在首页加载所有照片，无论从哪个页面导航过来
   useEffect(() => {
-    // 仅在未加载或加载失败时重新获取照片
-    if (imagesStatus === 'idle' || imagesStatus === 'failed') {
-      console.log('HomePage: Loading all images. Current status:', imagesStatus);
-      dispatch(fetchImages()); // 不传递mine参数，获取所有照片
-    }
-  }, [dispatch, imagesStatus]);
-
-  // 记录分组过滤的变化，用于调试
-  useEffect(() => {
-    console.log('HomePage: selectedGroupId changed:', selectedGroupId);
-  }, [selectedGroupId]);
+    // 始终在加载首页时重置过滤器为'all'
+    console.log('HomePage: 重置过滤器为"all"并加载所有照片');
+    dispatch(setFilter('all'));
+    
+    // 触发照片加载
+    dispatch(fetchImages());
+  }, [dispatch]);
   
   return (
     <div className="fade-in">

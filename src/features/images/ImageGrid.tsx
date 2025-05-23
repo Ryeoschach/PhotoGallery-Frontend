@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { List } from 'antd';
 import { 
@@ -6,8 +6,11 @@ import {
   selectSelectedImageIds,
   selectImagesStatus,
   toggleImageSelection,
-  fetchImages
+  fetchImages,
+  setFilter
 } from './imagesSlice';
+import type { RootState } from '../../app/store';
+import { selectCurrentUser } from '../auth/authSlice';
 import type { AppDispatch } from '../../app/store';
 import ImageCard from '../../components/ImageCard';
 import EmptyState from '../../components/EmptyState';
@@ -22,10 +25,19 @@ const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = '
   const dispatch = useDispatch<AppDispatch>();
   const images = useSelector(selectFilteredImages);
   const selectedImageIds = useSelector(selectSelectedImageIds);
-  const currentUser = useSelector((state: any) => state.auth.user); // 假设 currentUser.id 是 number, currentUser.username 是 string
+  const currentUser = useSelector(selectCurrentUser); // 使用selectCurrentUser选择器获取当前用户
   
   // 使用选择器获取图片加载状态
   const imagesStatus = useSelector(selectImagesStatus);
+  
+  // 单独获取selectedGroupId，使其成为组件状态的一部分
+  const selectedGroupId = useSelector((state: RootState) => state.images.selectedGroupId);
+  
+  // 从Redux中获取全局过滤器状态 - 将这个声明移到了useEffect之前
+  const storeFilter = useSelector((state: RootState) => state.images.filter);
+  
+  // 使用prop传入的filter优先，这样可以确保组件参数能覆盖全局状态
+  const effectiveFilter = filter || storeFilter;
   
   // 使用ref来追踪之前的filter和pathname，防止重复请求
   const prevFilterRef = useRef<string>(filter);
@@ -60,15 +72,19 @@ const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = '
     
     // 处理"我的照片"页面 - 该页面自己会调用fetchImages
     if (currentPath === '/my-photos') {
-      if (filter === 'mine') {
-        console.log('跳过请求 - 已经由MyPhotosPage处理');
-        return;
-      }
+      console.log('在"我的照片"页面，保持过滤器为mine');
+      // MyPhotosPage已经设置了过滤器为mine，这里什么也不做
+      return;
     }
     
     // 在首页上，不在这里加载照片，改由HomePage组件负责
     if (currentPath === '/' || currentPath === '/home') {
       console.log('在首页上 - 由HomePage组件处理加载');
+      // 确保使用'all'过滤器
+      if (storeFilter !== 'all') {
+        console.log('在首页中重置过滤器为all');
+        dispatch(setFilter('all'));
+      }
       return;
     }
     
@@ -81,77 +97,43 @@ const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = '
     }
     
     initialLoadDoneRef.current = true;
-  }, [dispatch, filter, window.location.pathname, imagesStatus]);
+  }, [dispatch, filter, storeFilter, window.location.pathname, imagesStatus]);
   
-  // 单独获取selectedGroupId，使其成为组件状态的一部分
-  const selectedGroupId = useSelector((state: any) => state.images.selectedGroupId);
-  
-  const filteredImages = React.useMemo(() => {
-    console.log('过滤图片数据:', { 
-      filter, 
-      currentUser, 
-      totalImages: images.length, 
-      selectedGroupId,
-      imageSample: images.length > 0 ? images[0] : 'No images',
-      allOwners: images.map(img => img?.owner)
+  // 记录过滤器变化，以便调试
+  useEffect(() => {
+    console.log('ImageGrid过滤器状态:', {
+      propFilter: filter,
+      storeFilter: storeFilter,
+      effectiveFilter: effectiveFilter,
+      location: window.location.pathname
     });
-
-    // 如果没有图片，直接返回空数组
-    if (!images || images.length === 0) {
-      return [];
+  }, [filter, storeFilter, effectiveFilter]);
+  
+  // 根据过滤器过滤图片
+  const filteredImages = useMemo(() => {
+    console.log(
+      'ImageGrid: 应用过滤器', 
+      'effectiveFilter:', effectiveFilter, 
+      'currentUser:', currentUser?.id, 
+      'selectedGroupId:', selectedGroupId
+    );
+    
+    let result = images;
+    
+    // 首先基于用户过滤
+    if (effectiveFilter === 'mine' && currentUser) {
+      result = result.filter(img => img.owner === currentUser.id);
     }
-
-    // 首页上，确保总是返回所有照片
-    if (window.location.pathname === '/' || window.location.pathname === '/home') {
-      console.log('首页图片过滤，selectedGroupId:', selectedGroupId);
-      
-      if (selectedGroupId) {
-        console.log(`首页应用分组过滤，分组ID: ${selectedGroupId}，总图片数: ${images.length}`);
-        const filtered = images.filter(img => 
-          img && img.groups && Array.isArray(img.groups) && 
-          img.groups.includes(selectedGroupId)
-        );
-        console.log(`首页分组过滤后剩余图片: ${filtered.length}张`);
-        return filtered;
-      }
-      return images;
+    
+    // 然后基于分组过滤
+    if (selectedGroupId) {
+      result = result.filter(img => 
+        img.groups && Array.isArray(img.groups) && img.groups.includes(selectedGroupId)
+      );
     }
-
-    if (filter === 'mine' && currentUser) {
-      return images.filter(img => {
-        if (!img) return false; // 图像对象本身可能为空
-        if (img.owner === null || img.owner === undefined) {
-          console.log('图片没有所有者:', img.id, img.name);
-          return false; 
-        }
-        
-        // 根据你的实际数据结构进行调整
-        // 如果 owner 存储的是数字 ID
-        if (typeof img.owner === 'number') {
-          const isOwner = img.owner === currentUser.id;
-          console.log(`比较图片 ${img.id} - 所有者ID ${img.owner} vs 用户ID ${currentUser.id}: ${isOwner}`);
-          return isOwner;
-        }
-        
-        // 如果 owner 存储的是字符串
-        if (typeof img.owner === 'string') {
-          // 检查是否为字符串形式的数字 ID
-          if (!isNaN(Number(img.owner))) {
-            const isOwner = Number(img.owner) === currentUser.id;
-            console.log(`比较图片 ${img.id} - 所有者ID(字符串数字) ${img.owner} vs 用户ID ${currentUser.id}: ${isOwner}`);
-            return isOwner;
-          }
-          // 否则认为是用户名
-          const isOwner = img.owner === currentUser.username;
-          console.log(`比较图片 ${img.id} - 所有者名称 ${img.owner} vs 用户名 ${currentUser.username}: ${isOwner}`);
-          return isOwner;
-        }
-        
-        return false; // 如果 owner 类型不匹配
-      });
-    }
-    return images;
-  }, [images, filter, currentUser, selectedGroupId]);
+    
+    return result;
+  }, [images, effectiveFilter, currentUser, selectedGroupId]); // 使用effectiveFilter替代filter
 
   // 处理图片选择/取消选择
   const handleImageSelect = (id: number) => {

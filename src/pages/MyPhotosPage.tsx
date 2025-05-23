@@ -4,14 +4,13 @@ import { Button, Modal, Space } from 'antd';
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import ImageGrid from '../features/images/ImageGrid';
 import UploadForm from '../features/images/ImageUploadForm';
-import { fetchImages, selectMyImages, selectImagesStatus } from '../features/images/imagesSlice';
+import { fetchImages, selectMyImages, selectImagesStatus, setFilter } from '../features/images/imagesSlice';
 import { selectIsAuthenticated } from '../features/auth/authSlice';
 import type { AppDispatch } from '../app/store';
 import { useNavigate } from 'react-router-dom';
 import PageCard from '../components/PageCard';
 import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
-// import ImageUpload from '../components/ImageUpload';
 
 const MyPhotosPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -40,6 +39,20 @@ const MyPhotosPage: React.FC = () => {
       console.log('初始加载用户照片'); 
       dispatch(fetchImages({ mine: true }));
       initialLoadDoneRef.current = true;
+    }
+  }, [dispatch, isAuthenticated]);
+
+  // 设置过滤器为 'mine'
+  useEffect(() => {
+    dispatch(setFilter('mine'));
+    
+    // 加载用户的图片
+    if (isAuthenticated && !initialLoadDoneRef.current) {
+      dispatch(fetchImages({ mine: true }));
+      initialLoadDoneRef.current = true;
+      
+      // 添加调试日志
+      console.log('MyPhotosPage: 设置过滤器为 mine，加载用户图片');
     }
   }, [dispatch, isAuthenticated]);
 

@@ -82,6 +82,10 @@ interface ImagesState {
   
   // 当前选中的分组 ID（用于过滤）
   selectedGroupId: number | null;
+
+  // 添加过滤器状态
+  filter: string;
+  page: number;
 }
 
 // 初始状态
@@ -105,6 +109,10 @@ const initialState: ImagesState = {
   groupsStatus: 'idle',
   groupsError: null,
   selectedGroupId: null,
+
+  // 添加过滤器初始状态
+  filter: '',
+  page: 1,
 };
 
 // 修改 fetchImages 函数 - 修复参数顺序问题
@@ -595,6 +603,12 @@ const imagesSlice = createSlice({
     setSelectedGroup: (state, action: PayloadAction<number | null>) => {
       state.selectedGroupId = action.payload;
     },
+    // 添加一个处理过滤器的 reducer
+    setFilter: (state, action: PayloadAction<string>) => {
+      state.filter = action.payload;
+      // 重置页码，确保切换过滤器时从第一页开始
+      state.page = 1;
+    }
   },
   extraReducers: (builder) => {
     builder
@@ -812,6 +826,8 @@ export const {
   clearSelectedImages,
   selectAllImages: selectAllImagesAction,
   setSelectedGroup,
+  // 导出新的 action creator
+  setFilter,
 } = imagesSlice.actions;
 
 // 导出 reducer

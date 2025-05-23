@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import request from '../../services/request';
 import type { RootState } from '../../app/store';
-import type { User, AuthResponse, LoginRequest, RegisterRequest, UserUpdateRequest } from './types';
+import type { User, LoginRequest, RegisterRequest, UserUpdateRequest } from './types';
 
 // 定义使用 request.ts 服务发送 API 请求
 console.log('使用 request.ts 服务发送 API 请求');
@@ -25,30 +25,55 @@ export const registerUser = createAsyncThunk<
 });
 
 // 登录用户
-export const loginUser = createAsyncThunk<
-  AuthResponse, 
-  LoginRequest, 
-  { rejectValue: string }
->('auth/login', async (credentials, { rejectWithValue, dispatch }) => {
-  try {
-    console.log('Attempting login with:', JSON.stringify(credentials));
-    const response = await request.post('/token/', credentials);
-    const { access, refresh } = response;
-    
-    localStorage.setItem('token', access);
-    localStorage.setItem('refreshToken', refresh);
-    
-    // 登录后自动获取用户信息
-    dispatch(fetchUserProfile());
-    
-    return response;
-  } catch (err: any) {
-    return rejectWithValue(
-      err.response?.data?.detail || 
-      (typeof err.response?.data === 'string' ? err.response.data : 'Login failed')
-    );
+export const loginUser = createAsyncThunk(
+  'auth/login',
+  async (credentials: LoginRequest, { rejectWithValue, dispatch }) => {
+    try {
+      console.log('登录请求数据:', credentials); // 添加日志
+      
+      // 使用原始fetch API代替request库
+      const response = await fetch('/api/token/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('登录响应错误:', errorData);
+        
+        // 提取有意义的错误消息
+        let errorMessage = '登录失败';
+        
+        if (errorData.username) {
+          errorMessage = `用户名错误: ${errorData.username.join(', ')}`;
+        } else if (errorData.password) {
+          errorMessage = `密码错误: ${errorData.password.join(', ')}`;
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        }
+        
+        return rejectWithValue(errorMessage);
+      }
+      
+      const data = await response.json();
+      console.log('登录响应成功:', data);
+      
+      // 保存token到localStorage
+      localStorage.setItem('token', data.access);
+      
+      // 获取用户资料
+      dispatch(fetchUserProfile());
+      
+      return data;
+    } catch (error) {
+      console.error('登录异常:', error);
+      return rejectWithValue('登录失败，请重试');
+    }
   }
-});
+);
 
 // 获取当前用户信息
 export const fetchUserProfile = createAsyncThunk<
