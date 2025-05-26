@@ -93,10 +93,17 @@ const LayoutSettingsPage: React.FC = () => {
 
  const handleConfigListChange = (fieldName: 'featured_images' | 'featured_groups', value: string) => {
     if (currentLayout) {
-      // 解析逗号分隔的字符串为数字数组
-      const numArray = value.split(',')
-        .map(item => parseInt(item.trim(), 10))
-        .filter(item => !isNaN(item));
+      // 增强的分隔符处理
+      // 支持英文逗号、中文逗号、分号、空格等多种分隔符
+      const cleanedValue = value.replace(/[，;；]+/g, ','); // 将中文逗号、分号等替换为英文逗号
+      const numArray = cleanedValue.split(/[,\s]+/) // 按逗号或空格分割
+        .map(item => {
+          const trimmed = item.trim();
+          return trimmed ? parseInt(trimmed, 10) : NaN;
+        })
+        .filter(item => !isNaN(item)); // 过滤掉非数字
+      
+      console.log('处理列表输入:', { fieldName, value, numArray });
       
       setCurrentLayout({
         ...currentLayout,
@@ -235,12 +242,24 @@ const LayoutSettingsPage: React.FC = () => {
                 {layout.is_active && (
                   <button 
                     onClick={() => {
-                      const newSpacing = window.prompt('请输入新的图片间距 (px):', String(layout.config.image_spacing));
-                      const newPadding = window.prompt('请输入新的网格内边距 (px):', String(layout.config.grid_padding));
-                      if (newSpacing !== null && newPadding !== null) {
+                      // 创建更友好的界面体验
+                      const newSpacing = window.prompt('请输入新的图片间距 (px)：\n\n当前值：' + layout.config.image_spacing + 'px', String(layout.config.image_spacing));
+                      
+                      // 如果用户点击取消，则停止后续操作
+                      if (newSpacing === null) return;
+                      
+                      const newPadding = window.prompt('请输入新的网格内边距 (px)：\n\n当前值：' + layout.config.grid_padding + 'px', String(layout.config.grid_padding));
+                      
+                      // 只有在两个值都不为null时才进行更新
+                      if (newPadding !== null) {
+                        // 转换为数字并验证
+                        const spacingValue = parseInt(newSpacing, 10);
+                        const paddingValue = parseInt(newPadding, 10);
+                        
+                        // 如果输入无效，则保留原值
                         handleUpdateSpacing(layout.id, {
-                          image_spacing: parseInt(newSpacing, 10) || layout.config.image_spacing,
-                          grid_padding: parseInt(newPadding, 10) || layout.config.grid_padding
+                          image_spacing: isNaN(spacingValue) ? layout.config.image_spacing : spacingValue,
+                          grid_padding: isNaN(paddingValue) ? layout.config.grid_padding : paddingValue
                         });
                       }
                     }} 
@@ -347,7 +366,13 @@ const LayoutSettingsPage: React.FC = () => {
                     name="featured_images"
                     value={currentLayout.config?.featured_images?.join(', ') ?? ''}
                     onChange={(e) => handleConfigListChange('featured_images', e.target.value)}
+                    placeholder="输入图片ID，用逗号分隔，如: 1, 2, 3"
+                    autoComplete="off"
                   />
+                  <small className={styles.helpText}>
+                    可以使用英文逗号、中文逗号、空格或分号分隔多个ID。<br/>
+                    图片ID可以在"我的照片"页面中的图片卡片上找到。
+                  </small>
                 </div>
                 <div className={styles.formGroup}>
                   <label htmlFor="featured_groups">特色分组 IDs (逗号分隔):</label>
@@ -357,7 +382,13 @@ const LayoutSettingsPage: React.FC = () => {
                     name="featured_groups"
                     value={currentLayout.config?.featured_groups?.join(', ') ?? ''}
                     onChange={(e) => handleConfigListChange('featured_groups', e.target.value)}
+                    placeholder="输入分组ID，用逗号分隔，如: 1, 2, 3"
+                    autoComplete="off"
                   />
+                  <small className={styles.helpText}>
+                    可以使用英文逗号、中文逗号、空格或分号分隔多个ID。<br/>
+                    分组ID可以在"按分组过滤"选择框中查看。
+                  </small>
                 </div>
 
                 <div className={styles.modalActions}>

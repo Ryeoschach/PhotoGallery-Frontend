@@ -90,9 +90,17 @@
   color: white;
   margin-top: 8px;
   width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  padding: 8px 0;
 }
 .spacingButton:hover {
   background-color: #138496;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* Modal Styles */
@@ -147,6 +155,20 @@
   font-size: 1rem;
 }
 
+.formGroup input[type="text"] {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.formGroup input[type="text"]:focus {
+  border-color: #007bff;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
 .formGroup input[type="checkbox"] {
   margin-right: 8px;
   vertical-align: middle;
@@ -181,4 +203,31 @@
 }
 .cancelButton:hover {
   background-color: #545b62;
+}
+
+.helpText {
+  display: block;
+  color: #666;
+  font-size: 0.8rem;
+  margin-top: 4px;
+  font-style: italic;
+  line-height: 1.4;
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 添加特色ID输入框的样式 */
+.formGroup input[name="featured_images"],
+.formGroup input[name="featured_groups"] {
+  font-family: monospace;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  background-color: #f9f9f9;
+  color: #333;
 }

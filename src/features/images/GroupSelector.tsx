@@ -220,7 +220,7 @@ const GroupSelector: React.FC = () => {
     <div className="group-selector">
           <div style={{ 
             display: 'flex', 
-            justifyContent: 'space-between', // 保留这个属性
+            justifyContent: 'space-between', 
             alignItems: 'center', 
             marginBottom: 16,
             width: '100%' // 确保容器占满整个可用宽度
@@ -231,7 +231,12 @@ const GroupSelector: React.FC = () => {
               type="primary" 
               icon={<PlusOutlined />} 
               onClick={showCreateGroupModal}
-              style={{ marginLeft: 'auto' }} // 确保按钮位于最右侧
+              style={{ 
+                marginLeft: 'auto', // 确保按钮位于最右侧
+                position: 'absolute', // 使用绝对定位
+                right: 16, // 距离右侧的距离
+                zIndex: 1 // 确保按钮在其他元素上面
+              }} 
             >
               创建分组
             </Button>
