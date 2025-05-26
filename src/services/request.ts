@@ -58,4 +58,26 @@ extendRequest.interceptors.request.use((url, options) => {
   return { url, options };
 });
 
+// 添加响应拦截器，用于调试响应
+extendRequest.interceptors.response.use(async (response) => {
+  const url = response.url;
+  console.log(`收到响应 - URL: ${url}`);
+  
+  try {
+    // 克隆响应以避免消费它
+    const clonedResponse = response.clone();
+    const contentType = response.headers.get('content-type');
+    
+    // 只尝试解析 JSON 响应
+    if (contentType && contentType.includes('application/json')) {
+      const data = await clonedResponse.json();
+      console.log(`响应数据 - URL: ${url}`, data);
+    }
+  } catch (error) {
+    console.log(`无法解析响应 - URL: ${url}`, error);
+  }
+  
+  return response;
+});
+
 export default extendRequest;

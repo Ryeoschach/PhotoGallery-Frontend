@@ -1,0 +1,93 @@
+/* 专门用于处理图片网格布局的 CSS */
+.image-grid-container {
+  width: 100%;
+  box-sizing: border-box;
+  --column-width: 25%; /* 默认列宽 */
+  --image-spacing: 16px; /* 默认间距 */
+}
+
+/* 重置一些可能影响布局的 Ant Design 样式 */
+.image-grid-container .ant-list-grid {
+  width: 100%;
+}
+
+/* 强制 Ant Design 的列表布局正确应用列数 */
+.image-grid-container .ant-row {
+  display: flex;
+  flex-wrap: wrap;
+  margin-right: calc(-1 * var(--image-spacing) / 2);
+  margin-left: calc(-1 * var(--image-spacing) / 2);
+}
+
+.image-grid-container .ant-col {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  padding: calc(var(--image-spacing) / 2) !important;
+  min-width: 180px; /* 设置最小宽度，确保图片不会太小 */
+}
+
+/* 动态生成不同列数的类 */
+.grid-columns-1 .ant-col {
+  width: 100% !important;
+}
+
+.grid-columns-2 .ant-col {
+  width: 50% !important;
+}
+
+.grid-columns-3 .ant-col {
+  width: 33.33333% !important;
+}
+
+.grid-columns-4 .ant-col {
+  width: 25% !important;
+  min-width: 200px; /* 4列时的最小宽度 */
+}
+
+.grid-columns-5 .ant-col {
+  width: 20% !important;
+  min-width: 180px; /* 5列时的最小宽度 */
+}
+
+.grid-columns-6 .ant-col {
+  width: 16.66667% !important;
+  min-width: 160px; /* 6列时的最小宽度 */
+}
+
+/* 添加响应式支持 */
+@media (max-width: 576px) {
+  .image-grid-container .ant-col {
+    width: 100% !important; /* 在小屏幕上始终显示一列 */
+    min-width: auto; /* 移除最小宽度限制 */
+  }
+}
+
+@media (min-width: 577px) and (max-width: 768px) {
+  .image-grid-container .ant-col {
+    width: 50% !important; /* 在中等屏幕上显示两列 */
+    min-width: auto; /* 移除最小宽度限制 */
+  }
+}
+
+/* 添加自适应布局类 */
+.grid-adaptive {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.grid-adaptive .ant-col {
+  flex-grow: 1;
+  flex-shrink: 0;
+  flex-basis: auto;
+}
+
+/* 不同列数下的优化设置 */
+.grid-columns-5 .modern-image-card,
+.grid-columns-6 .modern-image-card {
+  transform: none; /* 移除悬停效果，避免在小图片上看起来过于拥挤 */
+}
+
+.grid-columns-5 .modern-image-card:hover,
+.grid-columns-6 .modern-image-card:hover {
+  transform: translateY(-2px); /* 较小的悬停效果 */
+}

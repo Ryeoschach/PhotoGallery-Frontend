@@ -218,16 +218,24 @@ const GroupSelector: React.FC = () => {
   
   return (
     <div className="group-selector">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h3 style={{ margin: 0 }}>按分组过滤</h3>
-        <Button 
-          type="primary" 
-          icon={<PlusOutlined />} 
-          onClick={showCreateGroupModal}
-        >
-          创建分组
-        </Button>
-      </div>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', // 保留这个属性
+            alignItems: 'center', 
+            marginBottom: 16,
+            width: '100%' // 确保容器占满整个可用宽度
+          }}>
+            <h3 style={{ margin: 0, flexShrink: 0 }}>按分组过滤</h3> {/* 防止标题缩小 */}
+            <div style={{ flexGrow: 1 }}></div> {/* 添加弹性空间，将按钮推到右侧 */}
+            <Button 
+              type="primary" 
+              icon={<PlusOutlined />} 
+              onClick={showCreateGroupModal}
+              style={{ marginLeft: 'auto' }} // 确保按钮位于最右侧
+            >
+              创建分组
+            </Button>
+          </div>
       
       <div className="filter-container">
         <GroupSelect
@@ -236,7 +244,7 @@ const GroupSelector: React.FC = () => {
           onChange={handleGroupChange}
           isLoading={status === 'loading'}
           placeholder="选择一个分组进行过滤"
-          style={{ width: '30%' }}
+          style={{ width: '100%' }}
           onActionClick={{
             edit: handleEditClick,
             delete: handleDeleteClick

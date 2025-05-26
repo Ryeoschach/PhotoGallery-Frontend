@@ -15,14 +15,24 @@ import type { AppDispatch } from '../../app/store';
 import ImageCard from '../../components/ImageCard';
 import EmptyState from '../../components/EmptyState';
 import '../../components/ImageCard.css'; // 确保 ImageCard 的新 CSS 被引入
+import './ImageGridLayout.css'; // 导入新的布局样式
 import { useNavigate, useLocation } from 'react-router-dom'; // 导入 useNavigate 和 useLocation
 
 interface ImageGridProps {
   selectionMode?: boolean;  // 是否启用选择模式
   filter?: string;          // 过滤条件，如 'mine'、'all' 等
+  columns?: number;         // 新增：网格列数
+  imageSpacing?: number;    // 新增：图片间距
+  gridPadding?: number;     // 新增：网格内边距
 }
 
-const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = 'all' }) => {
+const ImageGrid: React.FC<ImageGridProps> = ({
+  selectionMode = false,
+  filter = 'all',
+  columns = 4, // 默认列数
+  imageSpacing = 16, // 默认图片间距
+  gridPadding = 16, // 默认网格内边距
+}) => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate(); // 初始化 useNavigate
   const location = useLocation(); // 初始化 useLocation
@@ -152,18 +162,35 @@ const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = '
     return <EmptyState message="暂无图片" description="没有找到符合条件的图片" />;
   }
 
+  // 根据传入的 props 动态计算 List.grid 的值
+  const listGridConfig = {
+    gutter: imageSpacing, // 使用 imageSpacing 作为 gutter
+    column: columns, // 直接设置列数，使其在所有屏幕尺寸下一致
+    // 根据列数调整一些配置
+    xs: 1,  // 在超小屏幕上始终为1列
+    sm: columns > 3 ? 2 : columns, // 小屏幕最多2列
+    md: columns > 4 ? 3 : columns, // 中屏幕最多3列
+    lg: columns > 5 ? 4 : columns, // 大屏幕最多4列
+    xl: columns, // 超大屏幕使用设定的列数
+  };
+
+  // 添加日志跟踪布局参数
+  console.log('ImageGrid 当前布局参数:', { columns, imageSpacing, gridPadding, listGridConfig });
+
+  // 计算列宽度的CSS变量值
+  const columnWidthVar = `calc(${100 / columns}% - ${imageSpacing}px)`;
+
   return (
-    <div className="image-grid-container"> {/* 添加一个容器 div 以便更好地控制样式 */}
+    <div 
+      className={`image-grid-container grid-columns-${columns} ${columns > 4 ? 'grid-adaptive' : ''}`} 
+      style={{ 
+        padding: `${gridPadding}px`,
+        '--column-width': columnWidthVar, // 使用CSS变量传递列宽度
+        '--image-spacing': `${imageSpacing}px` // 传递间距
+      } as React.CSSProperties} 
+    > 
       <List
-        grid={{
-          gutter: 24, // 增加卡片间的间距
-          xs: 1, // 在超小屏幕上每行1个
-          sm: 2, // 在小屏幕上每行2个
-          md: 3, // 在中等屏幕上每行3个
-          lg: 4, // 在大屏幕上每行4个
-          xl: 5, // 在超大屏幕上每行5个
-          xxl: 6, // 在特大屏幕上每行6个
-        }}
+        grid={listGridConfig} // 使用动态配置
         dataSource={filteredImages}
         renderItem={(image) => {
           if (!image) return null;
@@ -190,6 +217,17 @@ const ImageGrid: React.FC<ImageGridProps> = ({ selectionMode = false, filter = '
           );
         }}
       />
+      {/* 添加调试信息，显示当前布局参数 */}
+      {process.env.NODE_ENV === 'development' && (
+        <div style={{ margin: '20px 0', padding: '10px', background: '#f5f5f5', borderRadius: '4px', color: '#888', fontSize: '12px' }}>
+          <details>
+            <summary>调试信息：当前布局参数</summary>
+            <pre>
+              {JSON.stringify({ columns, imageSpacing, gridPadding, filteredImages: filteredImages.length }, null, 2)}
+            </pre>
+          </details>
+        </div>
+      )}
     </div>
   );
 };

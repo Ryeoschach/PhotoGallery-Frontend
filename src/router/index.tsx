@@ -9,6 +9,7 @@ import ProfilePage from '../features/auth/ProfilePage';
 import MyPhotosPage from '../pages/MyPhotosPage';
 import GroupsPage from '../pages/GroupsPage';
 import ProtectedRoute from '../components/ProtectedRoute';
+import LayoutSettingsPage from '../pages/LayoutSettingsPage';
 
 const router = createBrowserRouter([
   {
@@ -42,6 +43,10 @@ const router = createBrowserRouter([
       {
         path: 'groups',
         element: <ProtectedRoute element={<GroupsPage />} />,
+      },
+      {
+        path: 'layout-settings',
+        element: <ProtectedRoute element={<LayoutSettingsPage />} />,
       },
     ],
   },
