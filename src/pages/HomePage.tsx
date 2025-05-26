@@ -211,6 +211,24 @@ const HomePage: React.FC = () => {
   // 从 activeLayout 中提取配置，如果不存在则使用默认值
   const layoutConfig = activeLayout?.config;
   
+  // 计算特色图片的ID列表，用于在完整库中排除
+  const getFeaturedImageIds = () => {
+    const featuredIds = new Set<number>();
+    
+    // 添加特色图片ID
+    if (layoutConfig?.featured_images) {
+      layoutConfig.featured_images.forEach(id => featuredIds.add(id));
+    }
+    
+    // 添加特色分组中的图片ID（这里需要从images中计算）
+    // 注意：这是一个简化实现，实际应该从Redux状态中获取
+    if (layoutConfig?.featured_groups) {
+      // 这里暂时只返回特色图片ID，特色分组的ID需要在组件层面处理
+    }
+    
+    return Array.from(featuredIds);
+  };
+  
   // 添加日志检测布局配置是否正确传递
   console.log('HomePage 渲染时的 layoutConfig:', { 
     activeLayout, 
@@ -226,7 +244,45 @@ const HomePage: React.FC = () => {
         title="欢迎来到照片库"
         subtitle="一个用于管理用户和照片的React + Django应用程序"
       >
-        <Row gutter={[16, 24]}>
+        {/* 特色照片区域 - 紧贴在标题下方 */}
+        {layoutConfig && (layoutConfig.featured_images?.length > 0 || layoutConfig.featured_groups?.length > 0) && (
+          <div className={styles.featuredSection}>
+            <div className={styles.featuredHeader}>
+              <h2 className={styles.featuredTitle}>⭐ 特色展示</h2>
+              <div className={styles.featuredDescription}>
+                {layoutConfig.featured_images && layoutConfig.featured_images.length > 0 && (
+                  <span className={styles.featuredTag}>
+                    📸 {layoutConfig.featured_images.length}张特色图片
+                  </span>
+                )}
+                {layoutConfig.featured_groups && layoutConfig.featured_groups.length > 0 && (
+                  <span className={styles.featuredTag}>
+                    📂 {layoutConfig.featured_groups.length}个特色分组
+                  </span>
+                )}
+              </div>
+            </div>
+            
+            {/* 特色照片网格 - 100%宽度展示 */}
+            <div className={styles.featuredImageGrid}>
+              <ImageGrid
+                filter="all"
+                columns={layoutConfig?.columns ?? 4} 
+                imageSpacing={layoutConfig?.image_spacing ?? 16}
+                gridPadding={0} // 特色区域不需要额外内边距
+                featuredImages={layoutConfig?.featured_images ?? []}
+                featuredGroups={layoutConfig?.featured_groups ?? []}
+                showRecent={layoutConfig?.show_recent ?? false} // 特色区域不显示最近图片
+                recentCount={0}
+                featuredOnly={true} // 只显示特色内容
+                key={`featured-grid-${activeLayout?.id ?? 'default'}-${Date.now()}`} 
+              />
+            </div>
+          </div>
+        )}
+
+        {/* 控制区域 */}
+        <Row gutter={[16, 24]} className={styles.controlSection}>
           <Col span={24} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Space direction="vertical">
               <div style={{ marginBottom: 'var(--spacing-lg)' }}>
@@ -246,50 +302,33 @@ const HomePage: React.FC = () => {
           </Col>
         </Row>
         
-        <LoadingState status={imagesStatus}>
-          {/* 强制使用布局配置，如果没有则使用默认值 */}
-          <div className="grid-wrapper" key={`layout-${activeLayout?.id}-${Date.now()}`}>
-            <div style={{marginBottom: '20px'}}>
-              <h3 style={{marginBottom: '8px', color: '#666'}}>
-                当前布局: {activeLayout?.name || '默认布局'} 
-                ({layoutConfig?.columns || 4}列, 间距{layoutConfig?.image_spacing || 16}px)
-              </h3>
-              {/* 显示特色配置信息 */}
-              {layoutConfig && (
-                <div style={{fontSize: '14px', color: '#888', marginBottom: '12px'}}>
-                  {layoutConfig.featured_images && layoutConfig.featured_images.length > 0 && (
-                    <span style={{marginRight: '16px'}}>
-                      ⭐ 特色图片: {layoutConfig.featured_images.length}张 
-                      ({layoutConfig.featured_images.join(', ')})
-                    </span>
-                  )}
-                  {layoutConfig.featured_groups && layoutConfig.featured_groups.length > 0 && (
-                    <span style={{marginRight: '16px'}}>
-                      📂 特色分组: {layoutConfig.featured_groups.length}个
-                      ({layoutConfig.featured_groups.join(', ')})
-                    </span>
-                  )}
-                  {layoutConfig.show_recent && (
-                    <span style={{marginRight: '16px'}}>
-                      🆕 显示最新: {layoutConfig.recent_count || 6}张
-                    </span>
-                  )}
-                </div>
-              )}
+        {/* 完整照片网格区域 */}
+        <div className={styles.fullGallerySection}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>🖼️ 完整照片库</h2>
+            <div className={styles.layoutInfo}>
+              当前布局: {activeLayout?.name || '默认布局'} 
+              ({layoutConfig?.columns || 4}列, 间距{layoutConfig?.image_spacing || 16}px)
             </div>
-            <ImageGrid
-              filter="all"
-              columns={layoutConfig?.columns ?? 4} 
-              imageSpacing={layoutConfig?.image_spacing ?? 16}
-              gridPadding={layoutConfig?.grid_padding ?? 16}
-              featuredImages={layoutConfig?.featured_images ?? []}
-              featuredGroups={layoutConfig?.featured_groups ?? []}
-              showRecent={layoutConfig?.show_recent ?? true}
-              recentCount={layoutConfig?.recent_count ?? 6}
-              key={`grid-${activeLayout?.id ?? 'default'}-${layoutConfig?.columns ?? 4}-${layoutConfig?.image_spacing ?? 16}-${Date.now()}`} 
-            />
           </div>
-        </LoadingState>
+          
+          <LoadingState status={imagesStatus}>
+            <div className="grid-wrapper" key={`layout-${activeLayout?.id}-${Date.now()}`}>
+              <ImageGrid
+                filter="all"
+                columns={layoutConfig?.columns ?? 4} 
+                imageSpacing={layoutConfig?.image_spacing ?? 16}
+                gridPadding={layoutConfig?.grid_padding ?? 16}
+                featuredImages={[]} // 完整库中不重复显示特色图片
+                featuredGroups={[]} // 完整库中不重复显示特色分组
+                showRecent={layoutConfig?.show_recent ?? true}
+                recentCount={layoutConfig?.recent_count ?? 6}
+                excludeImages={getFeaturedImageIds()} // 排除特色图片
+                key={`full-grid-${activeLayout?.id ?? 'default'}-${layoutConfig?.columns ?? 4}-${layoutConfig?.image_spacing ?? 16}-${Date.now()}`} 
+              />
+            </div>
+          </LoadingState>
+        </div>
       </PageCard>
 
       {/* 布局编辑模态框 */}

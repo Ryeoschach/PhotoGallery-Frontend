@@ -28,6 +28,8 @@ interface ImageGridProps {
   featuredGroups?: number[]; // 特色分组ID列表
   showRecent?: boolean;      // 是否显示最近上传的图片
   recentCount?: number;      // 最近上传图片的数量
+  featuredOnly?: boolean;    // 新增：是否只显示特色内容
+  excludeImages?: number[];  // 新增：要排除的图片ID列表
 }
 
 const ImageGrid: React.FC<ImageGridProps> = ({
@@ -40,6 +42,8 @@ const ImageGrid: React.FC<ImageGridProps> = ({
   featuredGroups = [], // 特色分组ID列表
   showRecent = true, // 是否显示最近上传的图片
   recentCount = 6, // 最近上传图片的数量
+  featuredOnly = false, // 是否只显示特色内容
+  excludeImages = [], // 要排除的图片ID列表
 }) => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate(); // 初始化 useNavigate
@@ -154,6 +158,12 @@ const ImageGrid: React.FC<ImageGridProps> = ({
       );
     }
     
+    // 排除指定的图片
+    if (excludeImages.length > 0) {
+      const excludeSet = new Set(excludeImages);
+      result = result.filter(img => !excludeSet.has(img.id));
+    }
+    
     // 如果在首页，实现特色内容显示逻辑
     if (currentPath === '/' || currentPath === '/home') {
       // 1. 获取特色图片
@@ -178,25 +188,60 @@ const ImageGrid: React.FC<ImageGridProps> = ({
           .slice(0, recentCount);
       }
       
-      // 4. 合并并去重，保持优先级：特色图片 > 特色分组图片 > 最近图片 > 其他图片
-      const allFeaturedIds = new Set([
-        ...featuredImagesData.map(img => img.id),
-        ...featuredGroupImages.map(img => img.id),
-        ...recentImages.map(img => img.id)
-      ]);
-      
-      const otherImages = result.filter(img => !allFeaturedIds.has(img.id));
-      
-      // 按优先级组合结果
-      result = [
-        ...featuredImagesData, // 特色图片优先
-        ...featuredGroupImages.filter(img => !featuredImagesSet.has(img.id)), // 特色分组图片（排除已在特色图片中的）
-        ...recentImages.filter(img => 
-          !featuredImagesSet.has(img.id) && 
-          !featuredGroupImages.some(fg => fg.id === img.id)
-        ), // 最近图片（排除已显示的）
-        ...otherImages // 其他图片
-      ];
+      // 4. 根据 featuredOnly 参数决定返回内容
+      if (featuredOnly) {
+        // 只返回特色内容，按优先级排序
+        const allFeaturedIds = new Set<number>();
+        const featuredResult: typeof result = [];
+        
+        // 特色图片优先
+        featuredImagesData.forEach(img => {
+          if (!allFeaturedIds.has(img.id)) {
+            featuredResult.push(img);
+            allFeaturedIds.add(img.id);
+          }
+        });
+        
+        // 特色分组图片
+        featuredGroupImages.forEach(img => {
+          if (!allFeaturedIds.has(img.id)) {
+            featuredResult.push(img);
+            allFeaturedIds.add(img.id);
+          }
+        });
+        
+        // 最近图片（如果没有特色内容）
+        if (featuredResult.length === 0 && showRecent) {
+          recentImages.forEach(img => {
+            if (!allFeaturedIds.has(img.id)) {
+              featuredResult.push(img);
+              allFeaturedIds.add(img.id);
+            }
+          });
+        }
+        
+        result = featuredResult;
+      } else {
+        // 合并并去重，保持优先级：特色图片 > 特色分组图片 > 最近图片 > 其他图片
+        const allFeaturedIds = new Set([
+          ...featuredImagesData.map(img => img.id),
+          ...featuredGroupImages.map(img => img.id),
+          ...recentImages.map(img => img.id)
+        ]);
+        
+        const otherImages = result.filter(img => !allFeaturedIds.has(img.id));
+        
+        // 按优先级组合结果
+        result = [
+          ...featuredImagesData, // 特色图片优先
+          ...featuredGroupImages.filter(img => !featuredImagesSet.has(img.id)), // 特色分组图片（排除已在特色图片中的）
+          ...recentImages.filter(img => 
+            !featuredImagesSet.has(img.id) && 
+            !featuredGroupImages.some(fg => fg.id === img.id)
+          ), // 最近图片（排除已显示的）
+          ...otherImages // 其他图片
+        ];
+      }
       
       console.log('特色内容处理结果:', {
         总图片数: images.length,
@@ -204,7 +249,7 @@ const ImageGrid: React.FC<ImageGridProps> = ({
         特色图片数: featuredImagesData.length,
         特色分组图片数: featuredGroupImages.length,
         最近图片数: recentImages.length,
-        其他图片数: otherImages.length
+        仅特色模式: featuredOnly
       });
     }
     
