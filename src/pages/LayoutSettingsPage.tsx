@@ -11,6 +11,7 @@ import {
   deleteLayout,
   updateLayoutSpacing,
 } from '../features/layout/layoutSlice';
+import { fetchImages, fetchGroups } from '../features/images/imagesSlice'; // 导入图片和分组数据
 import type { Layout, NewLayoutData, UpdateLayoutData, UpdateLayoutSpacingData, LayoutConfig } from '../features/layout/types';
 import styles from './LayoutSettingsPage.module.css'; // 为页面创建样式文件
 import PageCard from '../components/PageCard';
@@ -20,6 +21,10 @@ import EmptyState from '../components/EmptyState';
 const LayoutSettingsPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { layouts, activeLayout, status, error } = useSelector((state: RootState) => state.layouts);
+  
+  // 获取图片和分组数据用于选择器
+  const images = useSelector((state: RootState) => state.images.list);
+  const groups = useSelector((state: RootState) => state.images.groups);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentLayout, setCurrentLayout] = useState<{
@@ -29,16 +34,25 @@ const LayoutSettingsPage: React.FC = () => {
     config: LayoutConfig;
   } | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  // 新增状态来跟踪输入框的实际值
+  const [featuredImagesInput, setFeaturedImagesInput] = useState('');
+  const [featuredGroupsInput, setFeaturedGroupsInput] = useState('');
 
   useEffect(() => {
     dispatch(fetchLayouts());
     dispatch(fetchActiveLayout());
+    // 获取图片和分组数据用于选择器
+    dispatch(fetchImages());
+    dispatch(fetchGroups());
   }, [dispatch]);
 
   const openModal = (layout?: Layout) => {
     if (layout) {
       setCurrentLayout({ ...layout, config: { ...layout.config } }); // 深拷贝 config
       setIsEditing(true);
+      // 设置输入框的初始值
+      setFeaturedImagesInput(layout.config.featured_images?.join(', ') || '');
+      setFeaturedGroupsInput(layout.config.featured_groups?.join(', ') || '');
     } else {
       // 为新布局设置默认值，确保 config 对象存在
       setCurrentLayout({
@@ -55,6 +69,9 @@ const LayoutSettingsPage: React.FC = () => {
         },
       });
       setIsEditing(false);
+      // 清空输入框
+      setFeaturedImagesInput('');
+      setFeaturedGroupsInput('');
     }
     setIsModalOpen(true);
   };
@@ -62,6 +79,9 @@ const LayoutSettingsPage: React.FC = () => {
   const closeModal = () => {
     setIsModalOpen(false);
     setCurrentLayout(null);
+    // 清空输入框状态
+    setFeaturedImagesInput('');
+    setFeaturedGroupsInput('');
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -92,18 +112,33 @@ const LayoutSettingsPage: React.FC = () => {
   };
 
  const handleConfigListChange = (fieldName: 'featured_images' | 'featured_groups', value: string) => {
+    // 更新对应的输入框状态
+    if (fieldName === 'featured_images') {
+      setFeaturedImagesInput(value);
+    } else {
+      setFeaturedGroupsInput(value);
+    }
+    
     if (currentLayout) {
-      // 增强的分隔符处理
-      // 支持英文逗号、中文逗号、分号、空格等多种分隔符
-      const cleanedValue = value.replace(/[，;；]+/g, ','); // 将中文逗号、分号等替换为英文逗号
-      const numArray = cleanedValue.split(/[,\s]+/) // 按逗号或空格分割
-        .map(item => {
-          const trimmed = item.trim();
-          return trimmed ? parseInt(trimmed, 10) : NaN;
-        })
-        .filter(item => !isNaN(item)); // 过滤掉非数字
+      // 允许输入逗号和其他字符，只在最终解析时处理
+      // 这样用户可以自由输入，包括逗号
+      console.log('输入值变化:', { fieldName, value });
       
-      console.log('处理列表输入:', { fieldName, value, numArray });
+      // 只有当输入不为空时才进行解析处理
+      let numArray: number[] = [];
+      if (value.trim()) {
+        // 增强的分隔符处理
+        // 支持英文逗号、中文逗号、分号、空格等多种分隔符
+        const cleanedValue = value.replace(/[，;；]+/g, ','); // 将中文逗号、分号等替换为英文逗号
+        numArray = cleanedValue.split(/[,\s]+/) // 按逗号或空格分割
+          .map(item => {
+            const trimmed = item.trim();
+            return trimmed ? parseInt(trimmed, 10) : NaN;
+          })
+          .filter(item => !isNaN(item)); // 过滤掉非数字
+      }
+      
+      console.log('解析结果:', { fieldName, value, numArray });
       
       setCurrentLayout({
         ...currentLayout,
@@ -364,7 +399,7 @@ const LayoutSettingsPage: React.FC = () => {
                     type="text"
                     id="featured_images"
                     name="featured_images"
-                    value={currentLayout.config?.featured_images?.join(', ') ?? ''}
+                    value={featuredImagesInput}
                     onChange={(e) => handleConfigListChange('featured_images', e.target.value)}
                     placeholder="输入图片ID，用逗号分隔，如: 1, 2, 3"
                     autoComplete="off"
@@ -373,6 +408,57 @@ const LayoutSettingsPage: React.FC = () => {
                     可以使用英文逗号、中文逗号、空格或分号分隔多个ID。<br/>
                     图片ID可以在"我的照片"页面中的图片卡片上找到。
                   </small>
+                  
+                  {/* 图片选择器 */}
+                  {images.length > 0 && (
+                    <div className={styles.imageSelector}>
+                      <p style={{fontSize: '14px', color: '#666', margin: '8px 0'}}>
+                        点击图片快速选择特色图片：
+                      </p>
+                      <div className={styles.imageGrid}>
+                        {images.slice(0, 12).map(image => { // 只显示前12张图片
+                          const isSelected = currentLayout.config?.featured_images?.includes(image.id) ?? false;
+                          return (
+                            <div
+                              key={image.id}
+                              className={`${styles.imageItem} ${isSelected ? styles.selected : ''}`}
+                              onClick={() => {
+                                const currentIds = currentLayout.config?.featured_images ?? [];
+                                const newIds = isSelected 
+                                  ? currentIds.filter(id => id !== image.id)
+                                  : [...currentIds, image.id];
+                                
+                                // 更新输入框的值
+                                setFeaturedImagesInput(newIds.join(', '));
+                                
+                                setCurrentLayout({
+                                  ...currentLayout,
+                                  config: {
+                                    ...currentLayout.config,
+                                    featured_images: newIds,
+                                  },
+                                });
+                              }}
+                              title={`图片ID: ${image.id} - ${image.name}`}
+                            >
+                              <img 
+                                src={image.thumbnail || image.image} 
+                                alt={image.name}
+                                style={{
+                                  width: '100%',
+                                  height: '60px',
+                                  objectFit: 'cover',
+                                  borderRadius: '4px'
+                                }}
+                              />
+                              <span className={styles.imageId}>#{image.id}</span>
+                              {isSelected && <span className={styles.checkmark}>✓</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className={styles.formGroup}>
                   <label htmlFor="featured_groups">特色分组 IDs (逗号分隔):</label>
@@ -380,7 +466,7 @@ const LayoutSettingsPage: React.FC = () => {
                     type="text"
                     id="featured_groups"
                     name="featured_groups"
-                    value={currentLayout.config?.featured_groups?.join(', ') ?? ''}
+                    value={featuredGroupsInput}
                     onChange={(e) => handleConfigListChange('featured_groups', e.target.value)}
                     placeholder="输入分组ID，用逗号分隔，如: 1, 2, 3"
                     autoComplete="off"
@@ -389,6 +475,48 @@ const LayoutSettingsPage: React.FC = () => {
                     可以使用英文逗号、中文逗号、空格或分号分隔多个ID。<br/>
                     分组ID可以在"按分组过滤"选择框中查看。
                   </small>
+                  
+                  {/* 分组选择器 */}
+                  {groups.length > 0 && (
+                    <div className={styles.groupSelector}>
+                      <p style={{fontSize: '14px', color: '#666', margin: '8px 0'}}>
+                        点击分组快速选择特色分组：
+                      </p>
+                      <div className={styles.groupGrid}>
+                        {groups.map(group => {
+                          const isSelected = currentLayout.config?.featured_groups?.includes(group.id) ?? false;
+                          return (
+                            <div
+                              key={group.id}
+                              className={`${styles.groupItem} ${isSelected ? styles.selected : ''}`}
+                              onClick={() => {
+                                const currentIds = currentLayout.config?.featured_groups ?? [];
+                                const newIds = isSelected 
+                                  ? currentIds.filter(id => id !== group.id)
+                                  : [...currentIds, group.id];
+                                
+                                // 更新输入框的值
+                                setFeaturedGroupsInput(newIds.join(', '));
+                                
+                                setCurrentLayout({
+                                  ...currentLayout,
+                                  config: {
+                                    ...currentLayout.config,
+                                    featured_groups: newIds,
+                                  },
+                                });
+                              }}
+                              title={`分组ID: ${group.id} - ${group.name}${group.description ? ': ' + group.description : ''}`}
+                            >
+                              <span className={styles.groupName}>📂 {group.name}</span>
+                              <span className={styles.groupId}>#{group.id}</span>
+                              {isSelected && <span className={styles.checkmark}>✓</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className={styles.modalActions}>

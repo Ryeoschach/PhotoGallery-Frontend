@@ -249,15 +249,43 @@ const HomePage: React.FC = () => {
         <LoadingState status={imagesStatus}>
           {/* 强制使用布局配置，如果没有则使用默认值 */}
           <div className="grid-wrapper" key={`layout-${activeLayout?.id}-${Date.now()}`}>
-            <h3 style={{marginBottom: '20px', color: '#666'}}>
-              当前布局: {activeLayout?.name || '默认布局'} 
-              ({layoutConfig?.columns || 4}列, 间距{layoutConfig?.image_spacing || 16}px)
-            </h3>
+            <div style={{marginBottom: '20px'}}>
+              <h3 style={{marginBottom: '8px', color: '#666'}}>
+                当前布局: {activeLayout?.name || '默认布局'} 
+                ({layoutConfig?.columns || 4}列, 间距{layoutConfig?.image_spacing || 16}px)
+              </h3>
+              {/* 显示特色配置信息 */}
+              {layoutConfig && (
+                <div style={{fontSize: '14px', color: '#888', marginBottom: '12px'}}>
+                  {layoutConfig.featured_images && layoutConfig.featured_images.length > 0 && (
+                    <span style={{marginRight: '16px'}}>
+                      ⭐ 特色图片: {layoutConfig.featured_images.length}张 
+                      ({layoutConfig.featured_images.join(', ')})
+                    </span>
+                  )}
+                  {layoutConfig.featured_groups && layoutConfig.featured_groups.length > 0 && (
+                    <span style={{marginRight: '16px'}}>
+                      📂 特色分组: {layoutConfig.featured_groups.length}个
+                      ({layoutConfig.featured_groups.join(', ')})
+                    </span>
+                  )}
+                  {layoutConfig.show_recent && (
+                    <span style={{marginRight: '16px'}}>
+                      🆕 显示最新: {layoutConfig.recent_count || 6}张
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
             <ImageGrid
               filter="all"
               columns={layoutConfig?.columns ?? 4} 
               imageSpacing={layoutConfig?.image_spacing ?? 16}
               gridPadding={layoutConfig?.grid_padding ?? 16}
+              featuredImages={layoutConfig?.featured_images ?? []}
+              featuredGroups={layoutConfig?.featured_groups ?? []}
+              showRecent={layoutConfig?.show_recent ?? true}
+              recentCount={layoutConfig?.recent_count ?? 6}
               key={`grid-${activeLayout?.id ?? 'default'}-${layoutConfig?.columns ?? 4}-${layoutConfig?.image_spacing ?? 16}-${Date.now()}`} 
             />
           </div>

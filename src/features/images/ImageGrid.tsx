@@ -24,6 +24,10 @@ interface ImageGridProps {
   columns?: number;         // 新增：网格列数
   imageSpacing?: number;    // 新增：图片间距
   gridPadding?: number;     // 新增：网格内边距
+  featuredImages?: number[]; // 特色图片ID列表
+  featuredGroups?: number[]; // 特色分组ID列表
+  showRecent?: boolean;      // 是否显示最近上传的图片
+  recentCount?: number;      // 最近上传图片的数量
 }
 
 const ImageGrid: React.FC<ImageGridProps> = ({
@@ -32,6 +36,10 @@ const ImageGrid: React.FC<ImageGridProps> = ({
   columns = 4, // 默认列数
   imageSpacing = 16, // 默认图片间距
   gridPadding = 16, // 默认网格内边距
+  featuredImages = [], // 特色图片ID列表
+  featuredGroups = [], // 特色分组ID列表
+  showRecent = true, // 是否显示最近上传的图片
+  recentCount = 6, // 最近上传图片的数量
 }) => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate(); // 初始化 useNavigate
@@ -121,13 +129,15 @@ const ImageGrid: React.FC<ImageGridProps> = ({
     });
   }, [filter, storeFilter, effectiveFilter]);
   
-  // 根据过滤器过滤图片
+  // 根据过滤器过滤图片，并实现特色内容逻辑
   const filteredImages = useMemo(() => {
     console.log(
       'ImageGrid: 应用过滤器', 
       'effectiveFilter:', effectiveFilter, 
       'currentUser:', currentUser?.id, 
-      'selectedGroupId:', selectedGroupId
+      'selectedGroupId:', selectedGroupId,
+      'featuredImages:', featuredImages,
+      'featuredGroups:', featuredGroups
     );
     
     let result = images;
@@ -144,8 +154,62 @@ const ImageGrid: React.FC<ImageGridProps> = ({
       );
     }
     
+    // 如果在首页，实现特色内容显示逻辑
+    if (currentPath === '/' || currentPath === '/home') {
+      // 1. 获取特色图片
+      const featuredImagesSet = new Set(featuredImages);
+      const featuredImagesData = result.filter(img => featuredImagesSet.has(img.id));
+      
+      // 2. 获取特色分组中的图片
+      let featuredGroupImages: typeof result = [];
+      if (featuredGroups.length > 0) {
+        featuredGroupImages = result.filter(img => 
+          img.groups && Array.isArray(img.groups) && 
+          img.groups.some(groupId => featuredGroups.includes(groupId))
+        );
+      }
+      
+      // 3. 获取最近上传的图片（如果启用）
+      let recentImages: typeof result = [];
+      if (showRecent && recentCount > 0) {
+        // 按上传时间降序排序，取最新的几张
+        recentImages = [...result]
+          .sort((a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime())
+          .slice(0, recentCount);
+      }
+      
+      // 4. 合并并去重，保持优先级：特色图片 > 特色分组图片 > 最近图片 > 其他图片
+      const allFeaturedIds = new Set([
+        ...featuredImagesData.map(img => img.id),
+        ...featuredGroupImages.map(img => img.id),
+        ...recentImages.map(img => img.id)
+      ]);
+      
+      const otherImages = result.filter(img => !allFeaturedIds.has(img.id));
+      
+      // 按优先级组合结果
+      result = [
+        ...featuredImagesData, // 特色图片优先
+        ...featuredGroupImages.filter(img => !featuredImagesSet.has(img.id)), // 特色分组图片（排除已在特色图片中的）
+        ...recentImages.filter(img => 
+          !featuredImagesSet.has(img.id) && 
+          !featuredGroupImages.some(fg => fg.id === img.id)
+        ), // 最近图片（排除已显示的）
+        ...otherImages // 其他图片
+      ];
+      
+      console.log('特色内容处理结果:', {
+        总图片数: images.length,
+        过滤后图片数: result.length,
+        特色图片数: featuredImagesData.length,
+        特色分组图片数: featuredGroupImages.length,
+        最近图片数: recentImages.length,
+        其他图片数: otherImages.length
+      });
+    }
+    
     return result;
-  }, [images, effectiveFilter, currentUser, selectedGroupId]); // 使用effectiveFilter替代filter
+  }, [images, effectiveFilter, currentUser, selectedGroupId, currentPath, featuredImages, featuredGroups, showRecent, recentCount]); // 使用effectiveFilter替代filter
 
   // 处理图片选择/取消选择
   const handleImageSelect = (id: number) => {
@@ -197,22 +261,92 @@ const ImageGrid: React.FC<ImageGridProps> = ({
           
           const isSelected = selectedImageIds.includes(image.id);
           
+          // 判断图片类型以添加视觉标识
+          const isFeaturedImage = featuredImages.includes(image.id);
+          const isFeaturedGroupImage = featuredGroups.length > 0 && 
+            image.groups && Array.isArray(image.groups) && 
+            image.groups.some(groupId => featuredGroups.includes(groupId));
+          const isRecentImage = showRecent && (() => {
+            // 检查是否为最近图片（简单判断：7天内上传的图片）
+            const uploadTime = new Date(image.uploaded_at).getTime();
+            const weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+            return uploadTime > weekAgo;
+          })();
+          
           return (
             <List.Item key={image.id}> {/* 确保 List.Item 有 key */}
-              <ImageCard
-                id={image.id}
-                name={image.name || 'Untitled'}
-                description={image.description}
-                imageUrl={image.image}
-                thumbnailUrl={image.thumbnail || image.image}
-                selected={isSelected}
-                onSelect={selectionMode ? handleImageSelect : undefined}
-                showActions={true}
-                onEdit={currentPath === '/my-photos' ? handleEdit : undefined}
-                ownerUsername={typeof image.owner === 'string' ? image.owner : (image.owner ? `User ID: ${image.owner}` : undefined)} // 使用 image.owner
-                uploadDate={image.uploaded_at} // 传递上传日期
-                isHomepageCard={currentPath === '/' || currentPath === '/home'} // 设置 isHomepageCard
-              />
+              <div style={{ position: 'relative' }}>
+                {/* 特色标识 */}
+                {(currentPath === '/' || currentPath === '/home') && (
+                  <>
+                    {isFeaturedImage && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '8px',
+                        left: '8px',
+                        background: 'linear-gradient(45deg, #ff6b6b, #ffa500)',
+                        color: 'white',
+                        padding: '4px 8px',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        zIndex: 10,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                      }}>
+                        ⭐ 特色
+                      </div>
+                    )}
+                    {!isFeaturedImage && isFeaturedGroupImage && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '8px',
+                        left: '8px',
+                        background: 'linear-gradient(45deg, #4ecdc4, #44a08d)',
+                        color: 'white',
+                        padding: '4px 8px',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        zIndex: 10,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                      }}>
+                        📂 分组
+                      </div>
+                    )}
+                    {!isFeaturedImage && !isFeaturedGroupImage && isRecentImage && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '8px',
+                        left: '8px',
+                        background: 'linear-gradient(45deg, #667eea, #764ba2)',
+                        color: 'white',
+                        padding: '4px 8px',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        zIndex: 10,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                      }}>
+                        🆕 最新
+                      </div>
+                    )}
+                  </>
+                )}
+                <ImageCard
+                  id={image.id}
+                  name={image.name || 'Untitled'}
+                  description={image.description}
+                  imageUrl={image.image}
+                  thumbnailUrl={image.thumbnail || image.image}
+                  selected={isSelected}
+                  onSelect={selectionMode ? handleImageSelect : undefined}
+                  showActions={true}
+                  onEdit={currentPath === '/my-photos' ? handleEdit : undefined}
+                  ownerUsername={typeof image.owner === 'string' ? image.owner : (image.owner ? `User ID: ${image.owner}` : undefined)} // 使用 image.owner
+                  uploadDate={image.uploaded_at} // 传递上传日期
+                  isHomepageCard={currentPath === '/' || currentPath === '/home'} // 设置 isHomepageCard
+                />
+              </div>
             </List.Item>
           );
         }}
@@ -223,7 +357,16 @@ const ImageGrid: React.FC<ImageGridProps> = ({
           <details>
             <summary>调试信息：当前布局参数</summary>
             <pre>
-              {JSON.stringify({ columns, imageSpacing, gridPadding, filteredImages: filteredImages.length }, null, 2)}
+              {JSON.stringify({ 
+                columns, 
+                imageSpacing, 
+                gridPadding, 
+                filteredImages: filteredImages.length,
+                featuredImages,
+                featuredGroups,
+                showRecent,
+                recentCount
+              }, null, 2)}
             </pre>
           </details>
         </div>
