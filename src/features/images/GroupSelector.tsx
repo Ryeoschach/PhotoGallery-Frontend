@@ -249,7 +249,7 @@ const GroupSelector: React.FC = () => {
           onChange={handleGroupChange}
           isLoading={status === 'loading'}
           placeholder="选择一个分组进行过滤"
-          style={{ width: '100%' }}
+          style={{ width: '200%' }}
           onActionClick={{
             edit: handleEditClick,
             delete: handleDeleteClick
