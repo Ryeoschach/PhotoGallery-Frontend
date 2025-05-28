@@ -110,7 +110,7 @@
 
 /* 控制区域样式 */
 .controlSection {
-  margin: var(--spacing-xl) 0;
+  margin: var(--spacing-md) 0; /* 减小上下边距 */
   padding: var(--spacing-lg);
   background: var(--card-background);
   border-radius: var(--border-radius-md);

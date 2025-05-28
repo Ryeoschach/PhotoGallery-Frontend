@@ -34,8 +34,7 @@ const FeaturedPhoto: React.FC<FeaturedPhotoProps> = ({ imageId }) => {
   return (
     <div className={styles.featuredPhotoContainer}>
       <div className={styles.featuredHeader}>
-        <h2 className={styles.featuredTitle}>⭐ 特色照片</h2>
-        <p className={styles.featuredSubtitle}>点击查看详情</p>
+        <h2 className={styles.featuredTitle}>{image.name}</h2>
       </div>
       
       <div className={styles.featuredImageWrapper} onClick={handleClick}>

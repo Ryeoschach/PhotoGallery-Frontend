@@ -293,7 +293,7 @@ body, html {
 
 /* 页面标题区域 */
 .page-header {
-  margin-bottom: var(--spacing-xl);
+  margin-bottom: var(--spacing-md); /* 减小底部边距 */
   text-align: center;
 }
 
@@ -539,6 +539,20 @@ body, html {
 .modern-table .ant-table-tbody > tr > td {
   border-bottom: 1px solid var(--border-color);
   transition: all var(--transition-fast);
+}
+
+/* Card组件内边距优化 */
+.ant-card .ant-card-body {
+  padding: 8px !important; /* 从默认的24px减少到16px，使布局更紧凑 */
+}
+
+/* 如果需要不同大小的内边距，可以添加特定类名 */
+.compact-card .ant-card-body {
+  padding: 2px !important; /* 更紧凑的内边距 */
+}
+
+.spacious-card .ant-card-body {
+  padding: 2px !important; /* 更宽松的内边距 */
 }
 
 /* 响应式调整 */

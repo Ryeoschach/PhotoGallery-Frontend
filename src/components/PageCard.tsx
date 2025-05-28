@@ -22,7 +22,7 @@ const PageCard: React.FC<PageCardProps> = ({
     <div className="fade-in">
       {(title || subtitle) && (
         <div className="page-header">
-          {title && <h1 className="page-title">{title}</h1>}
+          {title && <h4 className="page-title">{title}</h4>}
           {subtitle && <p className="page-subtitle">{subtitle}</p>}
         </div>
       )}
