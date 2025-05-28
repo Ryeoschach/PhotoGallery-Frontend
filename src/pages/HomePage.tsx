@@ -6,6 +6,7 @@ import ImageGrid from '../features/images/ImageGrid';
 import GroupSelector from '../features/images/GroupSelector';
 import PageCard from '../components/PageCard';
 import LoadingState from '../components/LoadingState';
+import FeaturedPhoto from '../components/FeaturedPhoto'; // 导入FeaturedPhoto组件
 import type { AppDispatch, RootState } from '../app/store';
 import {
   fetchActiveLayout,
@@ -211,19 +212,13 @@ const HomePage: React.FC = () => {
   // 从 activeLayout 中提取配置，如果不存在则使用默认值
   const layoutConfig = activeLayout?.config;
   
-  // 计算特色图片的ID列表，用于在完整库中排除
+  // 计算特色图片的ID列表，用于在完整库中排除（只计算第一张特色图片）
   const getFeaturedImageIds = () => {
     const featuredIds = new Set<number>();
     
-    // 添加特色图片ID
-    if (layoutConfig?.featured_images) {
-      layoutConfig.featured_images.forEach(id => featuredIds.add(id));
-    }
-    
-    // 添加特色分组中的图片ID（这里需要从images中计算）
-    // 注意：这是一个简化实现，实际应该从Redux状态中获取
-    if (layoutConfig?.featured_groups) {
-      // 这里暂时只返回特色图片ID，特色分组的ID需要在组件层面处理
+    // 只添加第一张特色图片ID
+    if (layoutConfig?.featured_images && layoutConfig.featured_images.length > 0) {
+      featuredIds.add(layoutConfig.featured_images[0]);
     }
     
     return Array.from(featuredIds);
@@ -244,41 +239,12 @@ const HomePage: React.FC = () => {
         title="欢迎来到照片库"
         subtitle="一个用于管理用户和照片的React + Django应用程序"
       >
-        {/* 特色照片区域 - 紧贴在标题下方 */}
-        {layoutConfig && (layoutConfig.featured_images?.length > 0 || layoutConfig.featured_groups?.length > 0) && (
-          <div className={styles.featuredSection}>
-            <div className={styles.featuredHeader}>
-              <h2 className={styles.featuredTitle}>⭐ 特色展示</h2>
-              <div className={styles.featuredDescription}>
-                {layoutConfig.featured_images && layoutConfig.featured_images.length > 0 && (
-                  <span className={styles.featuredTag}>
-                    📸 {layoutConfig.featured_images.length}张特色图片
-                  </span>
-                )}
-                {layoutConfig.featured_groups && layoutConfig.featured_groups.length > 0 && (
-                  <span className={styles.featuredTag}>
-                    📂 {layoutConfig.featured_groups.length}个特色分组
-                  </span>
-                )}
-              </div>
-            </div>
-            
-            {/* 特色照片网格 - 100%宽度展示 */}
-            <div className={styles.featuredImageGrid}>
-              <ImageGrid
-                filter="all"
-                columns={layoutConfig?.columns ?? 4} 
-                imageSpacing={layoutConfig?.image_spacing ?? 16}
-                gridPadding={0} // 特色区域不需要额外内边距
-                featuredImages={layoutConfig?.featured_images ?? []}
-                featuredGroups={layoutConfig?.featured_groups ?? []}
-                showRecent={layoutConfig?.show_recent ?? false} // 特色区域不显示最近图片
-                recentCount={0}
-                featuredOnly={true} // 只显示特色内容
-                key={`featured-grid-${activeLayout?.id ?? 'default'}-${Date.now()}`} 
-              />
-            </div>
-          </div>
+        {/* 特色照片区域 - 只显示1张特色照片，完全展示 */}
+        {layoutConfig && layoutConfig.featured_images?.length > 0 && (
+          <FeaturedPhoto 
+            imageId={layoutConfig.featured_images[0]} // 只取第一张特色照片
+            key={`featured-photo-${activeLayout?.id ?? 'default'}-${layoutConfig.featured_images[0]}`}
+          />
         )}
 
         {/* 控制区域 */}
@@ -320,7 +286,7 @@ const HomePage: React.FC = () => {
                 imageSpacing={layoutConfig?.image_spacing ?? 16}
                 gridPadding={layoutConfig?.grid_padding ?? 16}
                 featuredImages={[]} // 完整库中不重复显示特色图片
-                featuredGroups={[]} // 完整库中不重复显示特色分组
+                featuredGroups={[]} // 完整库中不显示特色分组
                 showRecent={layoutConfig?.show_recent ?? true}
                 recentCount={layoutConfig?.recent_count ?? 6}
                 excludeImages={getFeaturedImageIds()} // 排除特色图片
@@ -419,23 +385,14 @@ const HomePage: React.FC = () => {
                   </div>
               )}
               <div className={styles.formGroup}>
-                <label htmlFor="layout_featured_images">特色图片 IDs (逗号分隔):</label>
+                <label htmlFor="layout_featured_images">特色图片 ID (只需要1张):</label>
                 <input
                   type="text"
                   id="layout_featured_images"
                   name="featured_images"
+                  placeholder="例如: 1"
                   value={currentLayoutForModal.config?.featured_images?.join(', ') ?? ''}
                   onChange={(e) => handleLayoutConfigListChange('featured_images', e.target.value)}
-                />
-              </div>
-              <div className={styles.formGroup}>
-                <label htmlFor="layout_featured_groups">特色分组 IDs (逗号分隔):</label>
-                <input
-                  type="text"
-                  id="layout_featured_groups"
-                  name="featured_groups"
-                  value={currentLayoutForModal.config?.featured_groups?.join(', ') ?? ''}
-                  onChange={(e) => handleLayoutConfigListChange('featured_groups', e.target.value)}
                 />
               </div>
 

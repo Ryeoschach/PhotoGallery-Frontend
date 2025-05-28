@@ -16,6 +16,7 @@ export interface Image {
   height: number;
   size: number;
   owner: string | number | null; // 添加 owner 属性，可以是字符串、数字或 null
+  owner_username?: string; // 添加 owner_username 属性
   thumbnail?: string; // 缩略图 URL
   groups: number[]; // 组 ID 数组
   // 根据实际 API 返回添加其他字段
