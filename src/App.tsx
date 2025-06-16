@@ -7,6 +7,7 @@ import type { MenuProps } from 'antd';
 import './App.css';
 import { selectCurrentUser, selectIsAuthenticated, logoutUser, checkAuthStatus } from './features/auth/authSlice';
 import type { AppDispatch } from './app/store';
+import { toast } from './services/toast';
 
 const { Header, Content, Footer } = Layout;
 
@@ -15,6 +16,14 @@ const App: React.FC = () => {
   const currentUser = useSelector(selectCurrentUser);
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
+
+  // 初始化Toast配置
+  useEffect(() => {
+    toast.configure({
+      placement: 'topRight',
+      duration: 4.5,
+    });
+  }, []);
 
   // 在应用加载时检查认证状态
   useEffect(() => {

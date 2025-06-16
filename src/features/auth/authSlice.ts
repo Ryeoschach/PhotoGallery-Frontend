@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import request from '../../services/request';
 import type { RootState } from '../../app/store';
 import type { User, LoginRequest, RegisterRequest, UserUpdateRequest } from './types';
+import { parseLoginError, type LoginError } from '../../utils/errorHandling';
 
 // 定义使用 request.ts 服务发送 API 请求
 console.log('使用 request.ts 服务发送 API 请求');
@@ -39,7 +40,11 @@ export const registerUser = createAsyncThunk<
 // ...existing code...
 
 // 登录用户
-export const loginUser = createAsyncThunk(
+export const loginUser = createAsyncThunk<
+  any,
+  LoginRequest,
+  { rejectValue: LoginError }
+>(
   'auth/login',
   async (credentials: LoginRequest, { rejectWithValue, dispatch }) => {
     try {
@@ -58,18 +63,13 @@ export const loginUser = createAsyncThunk(
         const errorData = await response.json();
         console.error('登录响应错误:', errorData);
         
-        // 提取有意义的错误消息
-        let errorMessage = '登录失败';
+        // 使用新的错误解析函数
+        const parsedError = parseLoginError({
+          response: { status: response.status, data: errorData },
+          status: response.status,
+        });
         
-        if (errorData.username) {
-          errorMessage = `用户名错误: ${errorData.username.join(', ')}`;
-        } else if (errorData.password) {
-          errorMessage = `密码错误: ${errorData.password.join(', ')}`;
-        } else if (errorData.detail) {
-          errorMessage = errorData.detail;
-        }
-        
-        return rejectWithValue(errorMessage);
+        return rejectWithValue(parsedError);
       }
       
       const data = await response.json();
@@ -84,7 +84,10 @@ export const loginUser = createAsyncThunk(
       return data;
     } catch (error) {
       console.error('登录异常:', error);
-      return rejectWithValue('登录失败，请重试');
+      
+      // 解析网络错误
+      const parsedError = parseLoginError(error);
+      return rejectWithValue(parsedError);
     }
   }
 );
@@ -198,14 +201,16 @@ interface AuthState {
   isAuthenticated: boolean;
   user: User | null;
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
-  error: string | null;
+  error: LoginError | null;
+  lastAttemptedCredentials?: LoginRequest;
 }
 
 const initialState: AuthState = {
   isAuthenticated: checkInitialAuth(),
   user: null,
   status: 'idle',
-  error: null
+  error: null,
+  lastAttemptedCredentials: undefined
 };
 
 const authSlice = createSlice({
@@ -214,6 +219,9 @@ const authSlice = createSlice({
   reducers: {
     clearAuthError: (state) => {
       state.error = null;
+    },
+    setLastAttemptedCredentials: (state, action) => {
+      state.lastAttemptedCredentials = action.payload;
     }
   },
   extraReducers: (builder) => {
@@ -228,21 +236,32 @@ const authSlice = createSlice({
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.status = 'failed';
-        state.error = typeof action.payload === 'string' ? action.payload : '注册失败';
+        // 为注册错误创建一个简单的错误对象
+        state.error = {
+          type: 'validation',
+          message: typeof action.payload === 'string' ? action.payload : '注册失败',
+          retryable: false,
+        };
       })
       
       // 处理登录
-      .addCase(loginUser.pending, (state) => {
+      .addCase(loginUser.pending, (state, action) => {
         state.status = 'loading';
         state.error = null;
+        state.lastAttemptedCredentials = action.meta.arg;
       })
       .addCase(loginUser.fulfilled, (state) => {
         state.isAuthenticated = true;
         state.status = 'succeeded';
+        state.error = null;
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.status = 'failed';
-        state.error = typeof action.payload === 'string' ? action.payload : '登录失败';
+        state.error = action.payload || {
+          type: 'unknown',
+          message: '登录失败',
+          retryable: true,
+        };
       })
       
       // 处理获取用户资料
@@ -255,7 +274,11 @@ const authSlice = createSlice({
       })
       .addCase(fetchUserProfile.rejected, (state, action) => {
         state.status = 'failed';
-        state.error = typeof action.payload === 'string' ? action.payload : '获取用户资料失败';
+        state.error = {
+          type: 'server',
+          message: typeof action.payload === 'string' ? action.payload : '获取用户资料失败',
+          retryable: true,
+        };
       })
       
       // 处理更新用户资料
@@ -268,13 +291,19 @@ const authSlice = createSlice({
       })
       .addCase(updateUserProfile.rejected, (state, action) => {
         state.status = 'failed';
-        state.error = typeof action.payload === 'string' ? action.payload : '更新用户资料失败';
+        state.error = {
+          type: 'validation',
+          message: typeof action.payload === 'string' ? action.payload : '更新用户资料失败',
+          retryable: false,
+        };
       })
       
       // 处理注销
       .addCase(logoutUser.fulfilled, (state) => {
         state.isAuthenticated = false;
         state.user = null;
+        state.error = null;
+        state.lastAttemptedCredentials = undefined;
       })
       
       // 处理检查认证状态
@@ -295,12 +324,13 @@ const authSlice = createSlice({
   }
 });
 
-export const { clearAuthError } = authSlice.actions;
+export const { clearAuthError, setLastAttemptedCredentials } = authSlice.actions;
 
 // 选择器
 export const selectIsAuthenticated = (state: RootState) => state.auth.isAuthenticated;
 export const selectCurrentUser = (state: RootState) => state.auth.user;
 export const selectAuthStatus = (state: RootState) => state.auth.status;
 export const selectAuthError = (state: RootState) => state.auth.error;
+export const selectLastAttemptedCredentials = (state: RootState) => state.auth.lastAttemptedCredentials;
 
 export default authSlice.reducer;
